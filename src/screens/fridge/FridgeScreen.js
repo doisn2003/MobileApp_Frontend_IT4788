@@ -18,7 +18,7 @@ const FridgeScreen = () => {
     const [detailVisible, setDetailVisible] = useState(false);
 
     // Add State
-    const [addVisible, setAddVisible] = useState(false);
+    const [addOptions, setAddOptions] = useState({ visible: false, compartment: 'Cooler' });
 
     const isFocused = useIsFocused();
     const { logout } = useContext(AuthContext);
@@ -97,12 +97,23 @@ const FridgeScreen = () => {
         ]);
     };
 
+    const handleOpenAdd = (compartment) => {
+        setAddOptions({ visible: true, compartment });
+    };
+
+    const handleCloseAdd = () => {
+        setAddOptions({ ...addOptions, visible: false });
+    };
+
     const handleAddItem = async (formData) => {
         try {
             const data = new FormData();
             data.append('foodName', formData.foodName);
             data.append('quantity', formData.quantity);
             data.append('unitName', formData.unitName);
+            // Use the compartment from the form (which was initialized by our prop, or changed by system logic)
+            // But since user removed selector, we rely on what was passed or default.
+            // AddModel form state should have the correct compartment.
             data.append('compartment', formData.compartment);
             data.append('categoryName', formData.categoryName);
             data.append('useWithin', formData.useWithin);
@@ -112,21 +123,20 @@ const FridgeScreen = () => {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
 
-            setAddVisible(false);
+            handleCloseAdd();
             fetchFridgeItems();
-            Alert.alert('Success', 'Item added to fridge!');
+            Alert.alert('Thành công!', 'Đã thêm Thực phẩm vào tủ lạnh!');
         } catch (e) {
             console.log(e.response?.data);
-            Alert.alert('Error', e.response?.data?.message || 'Failed to add item');
+            Alert.alert('Thất bại!', e.response?.data?.message || 'Thêm Thực phẩm vào tủ lạnh thất bại!');
         }
     };
 
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>Fridge</Text>
+                <Text style={styles.headerTitle}>Tủ Lạnh Gia Đình</Text>
                 <View style={{ flexDirection: 'row' }}>
-                    <IconButton icon="logout" size={24} iconColor="#EF4444" onPress={logout} />
                     <IconButton icon="magnify" size={24} iconColor="#9CA3AF" style={styles.searchBtn} />
                 </View>
             </View>
@@ -137,13 +147,13 @@ const FridgeScreen = () => {
                     <View style={styles.sectionHeader}>
                         <View style={styles.sectionTitleRow}>
                             <IconButton icon="snowflake" size={20} iconColor="#2563EB" style={{ margin: 0 }} />
-                            <Text style={styles.sectionTitleFreezer}>Freezer</Text>
+                            <Text style={styles.sectionTitleFreezer}>Ngăn Đá</Text>
                             <View style={styles.countBadgeFreezer}>
-                                <Text style={styles.countTextFreezer}>{sortedFreezer.length} items</Text>
+                                <Text style={styles.countTextFreezer}>đang có: {sortedFreezer.length} items</Text>
                             </View>
                         </View>
-                        <TouchableOpacity onPress={() => setAddVisible(true)}>
-                            <Text style={styles.addBtnText}>+ Add</Text>
+                        <TouchableOpacity onPress={() => handleOpenAdd('Freezer')}>
+                            <Text style={[styles.addBtnCooler, { color: '#fff', fontSize: 12, paddingVertical: 4, paddingHorizontal: 8 }]}>+ Thêm</Text>
                         </TouchableOpacity>
                     </View>
 
@@ -155,7 +165,7 @@ const FridgeScreen = () => {
                         showsHorizontalScrollIndicator={false}
                         contentContainerStyle={styles.freezerList}
                         ListFooterComponent={
-                            <TouchableOpacity style={styles.addPlaceholderFreezer} onPress={() => setAddVisible(true)}>
+                            <TouchableOpacity style={styles.addPlaceholderFreezer} onPress={() => handleOpenAdd('Freezer')}>
                                 <IconButton icon="plus" size={30} iconColor="#D1D5DB" />
                             </TouchableOpacity>
                         }
@@ -167,13 +177,13 @@ const FridgeScreen = () => {
                     <View style={styles.sectionHeader}>
                         <View style={styles.sectionTitleRow}>
                             <IconButton icon="fridge" size={20} iconColor="#059669" style={{ margin: 0 }} />
-                            <Text style={styles.sectionTitleCooler}>Cooler</Text>
+                            <Text style={styles.sectionTitleCooler}>Ngăn Mát</Text>
                             <View style={styles.countBadgeCooler}>
-                                <Text style={styles.countTextCooler}>{sortedCooler.length} items</Text>
+                                <Text style={styles.countTextCooler}>đang có: {sortedCooler.length} items</Text>
                             </View>
                         </View>
-                        <TouchableOpacity style={styles.addBtnCooler} onPress={() => setAddVisible(true)}>
-                            <Text style={styles.addBtnCoolerText}>+ Add Item</Text>
+                        <TouchableOpacity style={styles.addBtnCooler} onPress={() => handleOpenAdd('Cooler')}>
+                            <Text style={styles.addBtnCoolerText}>+ Thêm</Text>
                         </TouchableOpacity>
                     </View>
 
@@ -183,7 +193,7 @@ const FridgeScreen = () => {
                                 <CoolerItem item={item} onClick={handleItemClick} />
                             </View>
                         ))}
-                        <TouchableOpacity style={styles.addPlaceholderCooler} onPress={() => setAddVisible(true)}>
+                        <TouchableOpacity style={styles.addPlaceholderCooler} onPress={() => handleOpenAdd('Cooler')}>
                             <IconButton icon="plus" size={30} iconColor="#E5E7EB" />
                         </TouchableOpacity>
                     </View>
@@ -199,8 +209,9 @@ const FridgeScreen = () => {
             />
 
             <AddFoodModal
-                visible={addVisible}
-                onClose={() => setAddVisible(false)}
+                visible={addOptions.visible}
+                initialCompartment={addOptions.compartment}
+                onClose={handleCloseAdd}
                 onAdd={handleAddItem}
             />
         </SafeAreaView>
