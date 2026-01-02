@@ -18,7 +18,10 @@ client.interceptors.request.use(
     async (config) => {
         const token = await SecureStore.getItemAsync('userToken');
         if (token) {
+            // console.log('Token found, attaching to header:', token.substring(0, 10) + '...');
             config.headers.Authorization = `Bearer ${token}`;
+        } else {
+            console.log('WARNING: No token found in SecureStore!');
         }
         return config;
     },
