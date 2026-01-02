@@ -58,18 +58,17 @@ const FoodModal = ({ item, visible, onClose, onSave, onDelete }) => {
                             <>
                                 <View>
                                     <Text style={styles.modalTitle}>{item.foodId?.name}</Text>
-                                    <Text style={styles.modalSubtitle}>Quantity: {item.quantity}</Text>
-                                    <Text style={styles.modalSubtitle}>Use Within: {dayjs(item.useWithin).format('DD/MM/YYYY')}</Text>
-                                    {item.note && <Text style={styles.modalNote}>Note: {item.note}</Text>}
+                                    <Text style={styles.modalSubtitle}>Số lượng: {item.quantity}</Text>
+                                    <Text style={styles.modalSubtitle}>Hạn sử dụng: {dayjs(item.useWithin).format('DD/MM/YYYY')}</Text>
+                                    {item.note && <Text style={styles.modalNote}>Ghi chú: {item.note}</Text>}
                                     <View style={styles.metaRow}>
-                                        <Text style={styles.modalMeta}>LOCATED IN: {item.compartment?.toUpperCase()}</Text>
-                                        <Text style={styles.modalMeta}>UNIT ID: {item.foodId?.unitId?.name || '-'}</Text>
+                                        <Text style={styles.modalMeta}>Địa điểm: {item.compartment === 'freezer' ? 'Ngăn Đá' : 'Ngăn Mát'}</Text>
                                     </View>
                                 </View>
 
                                 <View style={styles.modalActions}>
                                     <TouchableOpacity style={styles.btnPrimary} onPress={() => setIsEditing(true)}>
-                                        <Text style={styles.btnPrimaryText}>Edit Food</Text>
+                                        <Text style={styles.btnPrimaryText}>Chỉnh sửa thông tin 📝</Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity style={styles.btnDelete} onPress={() => onDelete(item.foodId?.name)}>
                                         <IconButton icon="delete" iconColor="#EF4444" size={24} />
@@ -78,14 +77,14 @@ const FoodModal = ({ item, visible, onClose, onSave, onDelete }) => {
                             </>
                         ) : (
                             <View style={styles.formContainer}>
-                                <Text style={styles.inputLabel}>Quantity</Text>
+                                <Text style={styles.inputLabel}>Số lượng</Text>
                                 <TextInput
                                     style={styles.input}
                                     value={formValues.quantity}
                                     onChangeText={t => setFormValues({ ...formValues, quantity: t })}
                                 />
 
-                                <Text style={styles.inputLabel}>Note</Text>
+                                <Text style={styles.inputLabel}>Ghi chú</Text>
                                 <TextInput
                                     style={styles.input}
                                     value={formValues.note}
@@ -94,10 +93,10 @@ const FoodModal = ({ item, visible, onClose, onSave, onDelete }) => {
 
                                 <View style={styles.formActions}>
                                     <TouchableOpacity style={styles.btnCancel} onPress={() => setIsEditing(false)}>
-                                        <Text style={styles.btnCancelText}>Cancel</Text>
+                                        <Text style={styles.btnCancelText}>Hủy</Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity style={styles.btnPrimary} onPress={handleSave}>
-                                        <Text style={styles.btnPrimaryText}>Save Changes</Text>
+                                        <Text style={styles.btnPrimaryText}>Lưu thay đổi</Text>
                                     </TouchableOpacity>
                                 </View>
                             </View>

@@ -33,13 +33,13 @@ const MainTabs = () => (
             tabBarIcon: ({ color, size }) => {
                 let iconName;
 
-                if (route.name === 'Fridge') {
+                if (route.name === 'Tủ Lạnh') {
                     iconName = 'fridge';
-                } else if (route.name === 'Shopping') {
+                } else if (route.name === 'Mua Sắm') {
                     iconName = 'cart';
-                } else if (route.name === 'Meals') {
+                } else if (route.name === 'Bữa Ăn') {
                     iconName = 'calendar-clock';
-                } else if (route.name === 'Group') {
+                } else if (route.name === 'Nhóm') {
                     iconName = 'account-group';
                 } else if (route.name === 'Profile') {
                     iconName = 'account';
@@ -51,13 +51,13 @@ const MainTabs = () => (
             tabBarInactiveTintColor: 'gray',
         })}
     >
-        <Tab.Screen name="Fridge" component={FridgeScreen} />
-        <Tab.Screen name="Shopping" component={ShoppingListScreen} options={{ title: 'Shopping List' }} />
-        <Tab.Screen name="Meals" component={MealPlanScreen} options={{ title: 'Meal Plan' }} />
-        <Tab.Screen name="Group" component={GroupScreen} />
+        <Tab.Screen name="Tủ Lạnh" component={FridgeScreen} />
+        <Tab.Screen name="Mua Sắm" component={ShoppingListScreen} options={{ title: 'Mua Sắm' }} />
+        <Tab.Screen name="Bữa Ăn" component={MealPlanScreen} options={{ title: 'Bữa Ăn' }} />
+        <Tab.Screen name="Nhóm" component={GroupScreen} />
         <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
-);
+); 
 
 const AppNavigator = () => {
     const { userToken, isLoading } = useContext(AuthContext);
