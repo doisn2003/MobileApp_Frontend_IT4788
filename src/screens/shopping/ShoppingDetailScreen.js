@@ -1,54 +1,52 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, FlatList, Alert } from 'react-native';
-import { Text, IconButton, Checkbox, Appbar, FAB } from 'react-native-paper';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Text, IconButton, Appbar, FAB, Checkbox } from 'react-native-paper';
 import client from '../../api/client';
 import { AddTaskModal } from '../../components/ShoppingModals';
 
 const ShoppingDetailScreen = ({ route, navigation }) => {
-    const { list } = route.params; // Nhận object list từ màn hình trước
+    const { list } = route.params;
     const [tasks, setTasks] = useState([]);
     const [loading, setLoading] = useState(false);
     const [addVisible, setAddVisible] = useState(false);
 
-    // API DOC STT 8: Get list of task
-    // GET shopping/task/
-    // Lưu ý: Tài liệu không ghi rõ params, nhưng logic cần filter theo listId.
-    // Nếu API trả về ALL task, ta phải filter client-side.
-    // Giả định API hỗ trợ query param ?listId=... hoặc trả về list tasks của shopping list hiện tại
-    const fetchTasks = async () => {
+    // 6.3 Lấy chi tiết Task trong List
+    // API: GET /shopping/task?listId={ID_LIST}
+    const fetchTasks = useCallback(async () => {
         setLoading(true);
         try {
-            // Thử gọi với param listId
-            const response = await client.get(`/shopping/task/?listId=${list._id || list.id}`);
+            const listId = list._id || list.id || list.listId;
+            const response = await client.get(`/shopping/task?listId=${listId}`);
+            
             if (response.data && Array.isArray(response.data.data)) {
-                 // Filter client-side để chắc chắn nếu server trả về all
-                 const currentListTasks = response.data.data.filter(t => t.listId === (list._id || list.id));
-                 setTasks(currentListTasks);
+                 setTasks(response.data.data);
+            } else if (Array.isArray(response.data)) {
+                 setTasks(response.data);
             } else {
-                // Fallback nếu cấu trúc khác
-                setTasks(response.data || []);
+                 setTasks([]);
             }
         } catch (e) {
             console.log('Fetch Tasks Error:', e);
         } finally {
             setLoading(false);
         }
-    };
+    }, [list]);
 
     useEffect(() => {
         fetchTasks();
-    }, []);
+    }, [fetchTasks]);
 
-    const handleDeleteTask = (taskId) => {
-        Alert.alert('Đã mua xong?', 'Bạn muốn xóa món này khỏi danh sách?', [
+    // 6.8 Xóa Task (hoặc Đánh dấu đã mua)
+    const handleCheckTask = (taskId, foodName) => {
+        Alert.alert('Xác nhận mua', `Bạn đã mua "${foodName}"? (Món này sẽ bị xóa khỏi danh sách)`, [
             { text: 'Chưa', style: 'cancel' },
             { 
-                text: 'Rồi', 
+                text: 'Đã mua', 
                 onPress: async () => {
                     try {
-                        // DELETE shopping/task/ - Body: { taskId }
-                        await client.delete('/shopping/task/', { data: { taskId } });
+                        // DELETE /shopping/task - Body: { taskId }
+                        await client.delete('/shopping/task', { data: { taskId } });
                         fetchTasks();
                     } catch (e) {
                         Alert.alert('Lỗi', 'Không thể cập nhật trạng thái');
@@ -66,15 +64,15 @@ const ShoppingDetailScreen = ({ route, navigation }) => {
             </View>
             <IconButton 
                 icon="check-circle-outline" 
-                iconColor="#059669"
-                size={24} 
-                onPress={() => handleDeleteTask(item._id || item.taskId)} 
+                iconColor="#D1D5DB"
+                size={28} 
+                onPress={() => handleCheckTask(item._id || item.taskId, item.foodName)} 
             />
         </View>
     );
 
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
             <Appbar.Header style={{backgroundColor: 'white'}}>
                 <Appbar.BackAction onPress={() => navigation.goBack()} />
                 <Appbar.Content title={list.name} subtitle={list.assignToUsername ? `Phụ trách: ${list.assignToUsername}` : ''} />
@@ -106,11 +104,11 @@ const ShoppingDetailScreen = ({ route, navigation }) => {
 
             <AddTaskModal 
                 visible={addVisible} 
-                listId={list._id || list.id}
+                listId={list._id || list.id || list.listId}
                 onClose={() => setAddVisible(false)}
                 onSuccess={fetchTasks}
             />
-        </View>
+        </SafeAreaView>
     );
 };
 
@@ -121,7 +119,7 @@ const styles = StyleSheet.create({
     taskItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', padding: 16, borderRadius: 12, marginBottom: 8, elevation: 1 },
     taskInfo: { flex: 1 },
     foodName: { fontSize: 16, fontWeight: '600', color: '#1F2937' },
-    quantity: { fontSize: 13, color: '#6B7280', marginTop: 2 },
+    quantity: { fontSize: 14, color: '#6B7280', marginTop: 2 },
     fab: { position: 'absolute', margin: 16, right: 0, bottom: 0, backgroundColor: '#059669' },
     empty: { alignItems: 'center', marginTop: 50 }
 });
