@@ -3,6 +3,7 @@ import { View, StyleSheet, FlatList, Alert } from 'react-native';
 import { Text, List, FAB, Dialog, Button, TextInput, Avatar, ActivityIndicator } from 'react-native-paper';
 import client from '../../api/client';
 import { useIsFocused } from '@react-navigation/native';
+import Refresh from '../../components/Refresh';
 
 const GroupScreen = () => {
     const [members, setMembers] = useState([]);
@@ -100,17 +101,25 @@ const GroupScreen = () => {
 
     return (
         <View style={styles.container}>
-            {members.length === 0 ? (
-                <View style={styles.centered}>
-                    <Text>No members in your group.</Text>
-                </View>
-            ) : (
-                <FlatList
-                    data={members}
-                    keyExtractor={(item) => item._id || item.id || Math.random().toString()}
-                    renderItem={renderItem}
-                />
-            )}
+            <Refresh style={styles.container} onRefresh={fetchMembers}>
+                {members.length === 0 ? (
+                    <View style={styles.centered}>
+                        <Text>No members in your group.</Text>
+                    </View>
+                ) : (
+                    members.map(item => (
+                        <List.Item
+                            key={item._id || item.id || Math.random().toString()}
+                            title={item.name || item.username}
+                            description={item.email}
+                            left={props => <Avatar.Text {...props} size={40} label={(item.name || item.username || 'U').substring(0, 2).toUpperCase()} />}
+                            right={props => (
+                                <Button {...props} onPress={() => handleRemoveMember(item._id || item.id)}>Remove</Button>
+                            )}
+                        />
+                    ))
+                )}
+            </Refresh>
 
             <FAB
                 style={styles.fab}
