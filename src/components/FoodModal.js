@@ -39,6 +39,8 @@ const FoodModal = ({ item, visible, onClose, onSave, onDelete }) => {
             setIsEditing(false);
             if (item.foodId?.image) {
                 setImageUri(item.foodId.image);
+            } else {
+                setImageUri(null);
             }
         }
     }, [item]);
