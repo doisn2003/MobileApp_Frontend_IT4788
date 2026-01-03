@@ -5,9 +5,11 @@ import client from '../../api/client';
 import { useIsFocused } from '@react-navigation/native';
 import dayjs from 'dayjs';
 import Refresh from '../../components/Refresh';
+import DatePicker from '../../components/DatePicker';
 
 const MealPlanScreen = () => {
     const [meals, setMeals] = useState([]);
+    const [mealDates, setMealDates] = useState([]);
     const [loading, setLoading] = useState(false);
     const [date, setDate] = useState(dayjs());
     const isFocused = useIsFocused();
@@ -31,9 +33,21 @@ const MealPlanScreen = () => {
         }
     };
 
+    const fetchMealDates = async () => {
+        try {
+            const response = await client.get('/meal/dates');
+            if (response.data && response.data.data) {
+                setMealDates(response.data.data);
+            }
+        } catch (e) {
+            console.log('Error fetching dates', e);
+        }
+    };
+
     useEffect(() => {
         if (isFocused) {
             fetchMeals();
+            fetchMealDates();
         }
     }, [isFocused, date]);
 
@@ -49,6 +63,7 @@ const MealPlanScreen = () => {
             setFoodName('');
             setVisible(false);
             fetchMeals();
+            fetchMealDates(); // Refresh dots
         } catch (e) {
             Alert.alert('Error', 'Failed to add meal');
         } finally {
@@ -60,6 +75,7 @@ const MealPlanScreen = () => {
         try {
             await client.delete('/meal/', { data: { planId } });
             fetchMeals();
+            fetchMealDates(); // Refresh dots
         } catch (e) { Alert.alert('Error', 'Failed to delete'); }
     };
 
@@ -75,8 +91,13 @@ const MealPlanScreen = () => {
     return (
         <View style={styles.container}>
             <View style={styles.header}>
+                {/* Custom DatePicker Navigation */}
                 <IconButton icon="chevron-left" onPress={() => setDate(date.subtract(1, 'day'))} />
-                <Text style={styles.dateText}>{date.format('DD/MM/YYYY')}</Text>
+                <DatePicker
+                    date={date}
+                    onDateChange={setDate}
+                    markedDates={mealDates}
+                />
                 <IconButton icon="chevron-right" onPress={() => setDate(date.add(1, 'day'))} />
             </View>
 
@@ -103,34 +124,34 @@ const MealPlanScreen = () => {
             <FAB
                 style={styles.fab}
                 icon="plus"
-                label="Add Meal"
+                label="Bữa ăn gia đình"
                 onPress={() => setVisible(true)}
             />
 
             <Dialog visible={visible} onDismiss={() => setVisible(false)}>
-                <Dialog.Title>Add Meal</Dialog.Title>
+                <Dialog.Title>Thêm bữa ăn</Dialog.Title>
                 <Dialog.Content>
                     <TextInput
-                        label="Food Name"
+                        label="Tên món ăn"
                         value={foodName}
                         onChangeText={setFoodName}
                         mode="outlined"
                         style={{ marginBottom: 10 }}
                     />
-                    <Text style={{ marginBottom: 5 }}>Meal Type:</Text>
+                    <Text style={{ marginBottom: 5 }}>Bữa:</Text>
                     <SegmentedButtons
                         value={mealType}
                         onValueChange={setMealType}
                         buttons={[
-                            { value: 'Breakfast', label: 'Brek' },
-                            { value: 'Lunch', label: 'Lunch' },
-                            { value: 'Dinner', label: 'Din' },
+                            { value: 'Breakfast', label: 'Sáng' },
+                            { value: 'Lunch', label: 'Trưa' },
+                            { value: 'Dinner', label: 'Tối' },
                         ]}
                     />
                 </Dialog.Content>
                 <Dialog.Actions>
-                    <Button onPress={() => setVisible(false)}>Cancel</Button>
-                    <Button onPress={handleAddMeal} loading={addLoading}>Add</Button>
+                    <Button onPress={() => setVisible(false)}>Hủy</Button>
+                    <Button onPress={handleAddMeal} loading={addLoading}>Thêm</Button>
                 </Dialog.Actions>
             </Dialog>
         </View>
@@ -140,7 +161,7 @@ const MealPlanScreen = () => {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#f5f5f5' },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 10, backgroundColor: '#fff', elevation: 2 },
-    dateText: { fontSize: 18, fontWeight: 'bold' },
+    // dateText removed/replaced by DatePicker styles
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
     fab: { position: 'absolute', margin: 16, right: 0, bottom: 0 },
 });
