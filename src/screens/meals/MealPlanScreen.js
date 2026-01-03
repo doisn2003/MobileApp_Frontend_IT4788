@@ -103,34 +103,34 @@ const MealPlanScreen = () => {
             <FAB
                 style={styles.fab}
                 icon="plus"
-                label="Add Meal"
+                label="Bữa ăn gia đình"
                 onPress={() => setVisible(true)}
             />
 
             <Dialog visible={visible} onDismiss={() => setVisible(false)}>
-                <Dialog.Title>Add Meal</Dialog.Title>
+                <Dialog.Title>Thêm bữa ăn</Dialog.Title>
                 <Dialog.Content>
                     <TextInput
-                        label="Food Name"
+                        label="Tên món ăn"
                         value={foodName}
                         onChangeText={setFoodName}
                         mode="outlined"
                         style={{ marginBottom: 10 }}
                     />
-                    <Text style={{ marginBottom: 5 }}>Meal Type:</Text>
+                    <Text style={{ marginBottom: 5 }}>Bữa:</Text>
                     <SegmentedButtons
                         value={mealType}
                         onValueChange={setMealType}
                         buttons={[
-                            { value: 'Breakfast', label: 'Brek' },
-                            { value: 'Lunch', label: 'Lunch' },
-                            { value: 'Dinner', label: 'Din' },
+                            { value: 'Breakfast', label: 'Sáng' },
+                            { value: 'Lunch', label: 'Trưa' },
+                            { value: 'Dinner', label: 'Tối' },
                         ]}
                     />
                 </Dialog.Content>
                 <Dialog.Actions>
-                    <Button onPress={() => setVisible(false)}>Cancel</Button>
-                    <Button onPress={handleAddMeal} loading={addLoading}>Add</Button>
+                    <Button onPress={() => setVisible(false)}>Hủy</Button>
+                    <Button onPress={handleAddMeal} loading={addLoading}>Thêm</Button>
                 </Dialog.Actions>
             </Dialog>
         </View>
