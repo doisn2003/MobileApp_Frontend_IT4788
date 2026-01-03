@@ -6,12 +6,12 @@ import client from '../api/client';
 import DatePicker from './DatePicker'; // <--- IMPORT MỚI
 
 // --- MODAL TẠO DANH SÁCH MỚI ---
-export const CreateListModal = ({ visible, onClose, onSuccess }) => {
+export const CreateListModal = ({ visible, onClose, onSuccess, selectedDate }) => {
     const [name, setName] = useState('');
     const [note, setNote] = useState('');
     const [assignee, setAssignee] = useState('');
     
-    // State ngày dạng chuỗi để gửi API
+    // State ngày dạng chuỗi để gửi API - sử dụng selectedDate từ parent hoặc hôm nay
     const [dateStr, setDateStr] = useState(dayjs().format('YYYY-MM-DD')); 
     
     const [members, setMembers] = useState([]);
@@ -19,10 +19,14 @@ export const CreateListModal = ({ visible, onClose, onSuccess }) => {
     useEffect(() => {
         if (visible) {
             fetchMembers();
-            // Reset form khi mở
-            setDateStr(dayjs().format('YYYY-MM-DD'));
+            // CẬP NHẬT ngày từ selectedDate khi modal mở
+            if (selectedDate) {
+                setDateStr(dayjs(selectedDate).format('YYYY-MM-DD'));
+            } else {
+                setDateStr(dayjs().format('YYYY-MM-DD'));
+            }
         }
-    }, [visible]);
+    }, [visible, selectedDate]);
 
     const fetchMembers = async () => {
         try {

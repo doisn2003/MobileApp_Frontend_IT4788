@@ -163,7 +163,8 @@ const ShoppingListScreen = () => {
             <CreateListModal 
                 visible={createVisible} 
                 onClose={() => setCreateVisible(false)} 
-                onSuccess={fetchLists} 
+                onSuccess={fetchLists}
+                selectedDate={filterDate}
             />
         </SafeAreaView>
     );
