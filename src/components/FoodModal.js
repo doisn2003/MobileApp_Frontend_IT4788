@@ -167,7 +167,7 @@ const FoodModal = ({ item, visible, onClose, onSave, onDelete }) => {
                                     <Text style={styles.modalSubtitle}>Hạn sử dụng: {dayjs(item.useWithin).format('DD/MM/YYYY')}</Text>
                                     {item.note && <Text style={styles.modalNote}>Ghi chú: {item.note}</Text>}
                                     <View style={styles.metaRow}>
-                                        <Text style={styles.modalMeta}>Địa điểm: {item.compartment === 'freezer' ? 'Ngăn Đá' : 'Ngăn Mát'}</Text>
+                                        <Text style={styles.modalMeta}>Địa điểm: {item.compartment === 'Freezer' ? 'Ngăn Đá' : 'Ngăn Mát'}</Text>
                                     </View>
                                 </View>
 
