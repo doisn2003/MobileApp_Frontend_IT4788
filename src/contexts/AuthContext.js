@@ -59,6 +59,15 @@ export const AuthProvider = ({ children }) => {
         setIsLoading(false);
     };
 
+
+    // Hàm MỚI: Cập nhật thông tin user cục bộ sau khi gọi API Edit
+    const updateUser = async (newUserConfig) => {
+        const updatedUser = { ...userInfo, ...newUserConfig };
+        setUserInfo(updatedUser);
+        await SecureStore.setItemAsync('userInfo', JSON.stringify(updatedUser));
+    };
+
+
     const isLoggedIn = async () => {
         try {
             setIsLoading(true);
@@ -75,6 +84,8 @@ export const AuthProvider = ({ children }) => {
             setIsLoading(false);
         }
     };
+
+
 
     useEffect(() => {
         isLoggedIn();
