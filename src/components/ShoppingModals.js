@@ -10,6 +10,8 @@ export const CreateListModal = ({ visible, onClose, onSuccess }) => {
     const [note, setNote] = useState('');
     const [assignee, setAssignee] = useState('');
     const [date, setDate] = useState(dayjs().format('YYYY-MM-DD'));
+    
+    // State danh sách thành viên
     const [members, setMembers] = useState([]);
 
     useEffect(() => {
@@ -18,7 +20,6 @@ export const CreateListModal = ({ visible, onClose, onSuccess }) => {
         }
     }, [visible]);
 
-    // Lấy thành viên để gán việc
     const fetchMembers = async () => {
         try {
             const response = await client.get('/user/group/');
@@ -26,34 +27,42 @@ export const CreateListModal = ({ visible, onClose, onSuccess }) => {
                 setMembers(response.data.data);
             }
         } catch (e) {
-            // Lỗi 00096: Chưa có nhóm -> Không phải lỗi hệ thống
+            // Mã 00096: Chưa có nhóm -> Không log lỗi, chỉ để mảng rỗng
             if (e.response?.data?.code !== '00096') {
                 console.log('Error fetching group:', e);
             }
         }
     };
 
-    // 6.2 Tạo danh sách mua sắm
     const handleCreate = async () => {
         if (!name) return Alert.alert('Lỗi', 'Vui lòng nhập tên danh sách');
 
         try {
-            // Body JSON
+            // [FIX LOGIC]: API yêu cầu x-www-form-urlencoded
+            // Body: name, date, assignToUsername, note 
             const payload = {
-                name,
-                date,
-                assignToUsername: assignee,
-                note
+                name: name,
+                date: date,
+                assignToUsername: assignee, // Đảm bảo trường này có giá trị
+                note: note
             };
             
-            await client.post('/shopping/', payload);
+            // Gửi request với Header ép buộc là Form Data
+            await client.post('/shopping/', payload, {
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+            });
 
-            Alert.alert('Thành công', 'Đã tạo danh sách');
+            Alert.alert('Thành công', 'Đã tạo danh sách mua sắm');
             onSuccess();
             onClose();
-            // Reset
-            setName(''); setNote(''); setAssignee('');
+            
+            // Reset form
+            setName(''); 
+            setNote(''); 
+            setAssignee(''); 
+            setDate(dayjs().format('YYYY-MM-DD'));
         } catch (e) {
+            console.log("Create List Error:", e.response?.data);
             Alert.alert('Thất bại', e.response?.data?.message || 'Lỗi server');
         }
     };
@@ -69,10 +78,14 @@ export const CreateListModal = ({ visible, onClose, onSuccess }) => {
                     <TextInput label="Ghi chú" value={note} onChangeText={setNote} style={styles.input} mode="outlined"/>
 
                     <Text style={styles.label}>Gán cho:</Text>
-                    <ScrollView style={{maxHeight: 100, marginBottom: 10}}>
+                    <ScrollView style={{maxHeight: 120, marginBottom: 10, borderColor: '#E5E7EB', borderWidth: 1, borderRadius: 8}}>
                         <RadioButton.Group onValueChange={setAssignee} value={assignee}>
                             {members.length > 0 ? members.map(m => (
-                                <RadioButton.Item key={m.username} label={m.name || m.username} value={m.username} />
+                                <RadioButton.Item 
+                                    key={m.username} 
+                                    label={m.name || m.username} 
+                                    value={m.username} // Giá trị này sẽ vào assignToUsername
+                                />
                             )) : <Text style={styles.hint}>Bạn chưa có nhóm (Tạo ở tab Nhóm)</Text>}
                         </RadioButton.Group>
                     </ScrollView>
@@ -87,18 +100,17 @@ export const CreateListModal = ({ visible, onClose, onSuccess }) => {
     );
 };
 
-// --- MODAL THÊM TASK ---
+// ... (Giữ nguyên phần AddTaskModal không đổi)
 export const AddTaskModal = ({ visible, onClose, listId, onSuccess }) => {
     const [foodName, setFoodName] = useState('');
     const [quantity, setQuantity] = useState('1');
 
-    // 6.4 Thêm Task vào List
     const handleAddTask = async () => {
         if (!foodName) return;
 
         try {
-            // API yêu cầu 'tasks' là mảng
-            // Body: { listId, tasks: [ { foodName, quantity } ] }
+            // API Create tasks: POST shopping/task/
+            // Document  ghi rõ: application/json
             const payload = {
                 listId: listId,
                 tasks: [
@@ -106,7 +118,9 @@ export const AddTaskModal = ({ visible, onClose, listId, onSuccess }) => {
                 ]
             };
 
-            await client.post('/shopping/task', payload);
+            await client.post('/shopping/task/', payload, {
+                headers: { 'Content-Type': 'application/json' }
+            });
 
             onSuccess();
             setFoodName(''); setQuantity('1');
@@ -148,5 +162,5 @@ const styles = StyleSheet.create({
     input: { marginBottom: 12, backgroundColor: 'white' },
     row: { flexDirection: 'row', gap: 10, marginTop: 10 },
     label: { fontWeight: 'bold', marginTop: 10, marginBottom: 5 },
-    hint: { fontStyle: 'italic', color: 'gray', marginTop: 5 }
+    hint: { padding: 10, fontStyle: 'italic', color: 'gray' }
 });
