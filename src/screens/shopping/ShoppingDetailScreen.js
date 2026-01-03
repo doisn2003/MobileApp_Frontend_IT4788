@@ -11,14 +11,15 @@ const ShoppingDetailScreen = ({ route, navigation }) => {
     const [loading, setLoading] = useState(false);
     const [addVisible, setAddVisible] = useState(false);
 
-    // 6.3 Lấy chi tiết Task trong List
-    // API: GET /shopping/task?listId={ID_LIST}
     const fetchTasks = useCallback(async () => {
         setLoading(true);
         try {
             const listId = list._id || list.id || list.listId;
             const response = await client.get(`/shopping/task?listId=${listId}`);
             
+            // Debug: Xem server trả về key gì (foodName hay name?)
+            // console.log('Tasks Data:', response.data);
+
             if (response.data && Array.isArray(response.data.data)) {
                  setTasks(response.data.data);
             } else if (Array.isArray(response.data)) {
@@ -37,7 +38,6 @@ const ShoppingDetailScreen = ({ route, navigation }) => {
         fetchTasks();
     }, [fetchTasks]);
 
-    // 6.8 Xóa Task (hoặc Đánh dấu đã mua)
     const handleCheckTask = (taskId, foodName) => {
         Alert.alert('Xác nhận mua', `Bạn đã mua "${foodName}"? (Món này sẽ bị xóa khỏi danh sách)`, [
             { text: 'Chưa', style: 'cancel' },
@@ -49,6 +49,7 @@ const ShoppingDetailScreen = ({ route, navigation }) => {
                         await client.delete('/shopping/task', { data: { taskId } });
                         fetchTasks();
                     } catch (e) {
+                        console.log(e);
                         Alert.alert('Lỗi', 'Không thể cập nhật trạng thái');
                     }
                 } 
@@ -56,20 +57,28 @@ const ShoppingDetailScreen = ({ route, navigation }) => {
         ]);
     };
 
-    const renderTask = ({ item }) => (
-        <View style={styles.taskItem}>
-            <View style={styles.taskInfo}>
-                <Text style={styles.foodName}>{item.foodName}</Text>
-                <Text style={styles.quantity}>Số lượng: {item.quantity}</Text>
+    const renderTask = ({ item }) => {
+        // [FIX QUAN TRỌNG]: Kiểm tra các trường hợp tên biến khác nhau
+        // Server có thể trả về 'foodName', 'name' hoặc đôi khi là 'content'
+        const displayFoodName = item.foodName || item.name || "Món không tên";
+        const displayQuantity = item.quantity || 1;
+        const displayId = item._id || item.taskId || item.id;
+
+        return (
+            <View style={styles.taskItem}>
+                <View style={styles.taskInfo}>
+                    <Text style={styles.foodName}>{displayFoodName}</Text>
+                    <Text style={styles.quantity}>Số lượng: {displayQuantity}</Text>
+                </View>
+                <IconButton 
+                    icon="check-circle-outline" 
+                    iconColor="#D1D5DB"
+                    size={28} 
+                    onPress={() => handleCheckTask(displayId, displayFoodName)} 
+                />
             </View>
-            <IconButton 
-                icon="check-circle-outline" 
-                iconColor="#D1D5DB"
-                size={28} 
-                onPress={() => handleCheckTask(item._id || item.taskId, item.foodName)} 
-            />
-        </View>
-    );
+        );
+    };
 
     return (
         <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
@@ -86,7 +95,7 @@ const ShoppingDetailScreen = ({ route, navigation }) => {
             <FlatList
                 data={tasks}
                 renderItem={renderTask}
-                keyExtractor={item => item._id || item.taskId || Math.random().toString()}
+                keyExtractor={item => item._id || item.taskId || item.id || Math.random().toString()}
                 contentContainerStyle={styles.list}
                 ListEmptyComponent={
                     <View style={styles.empty}>

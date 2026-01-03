@@ -4,10 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, FAB, Card, IconButton, Avatar, Chip, ActivityIndicator } from 'react-native-paper';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import dayjs from 'dayjs';
-
 import client from '../../api/client';
 import { CreateListModal } from '../../components/ShoppingModals';
-
 
 const ShoppingListScreen = () => {
     const [lists, setLists] = useState([]);
@@ -17,11 +15,11 @@ const ShoppingListScreen = () => {
     const isFocused = useIsFocused();
     const navigation = useNavigation();
 
-    // 6.1 Lấy danh sách các chuyến đi
     const fetchLists = useCallback(async () => {
         setLoading(true);
         try {
             const response = await client.get('/shopping/');
+            // Xử lý dữ liệu trả về
             if (response.data && Array.isArray(response.data.data)) {
                 setLists(response.data.data);
             } else if (Array.isArray(response.data)) {
@@ -42,7 +40,6 @@ const ShoppingListScreen = () => {
         }
     }, [isFocused, fetchLists]);
 
-    // 6.6 Xóa danh sách mua sắm
     const handleDelete = (listId) => {
         Alert.alert('Xác nhận', 'Bạn có chắc muốn xóa danh sách này?', [
             { text: 'Hủy', style: 'cancel' },
@@ -51,7 +48,7 @@ const ShoppingListScreen = () => {
                 style: 'destructive',
                 onPress: async () => {
                     try {
-                        // Body JSON: { "listId": "..." }
+                        // DELETE /shopping/ - Body: listId 
                         await client.delete('/shopping/', { data: { listId } });
                         fetchLists();
                     } catch (e) {
@@ -75,18 +72,19 @@ const ShoppingListScreen = () => {
             <Card.Content>
                 {item.note ? <Text style={styles.note}>{item.note}</Text> : null}
                 <View style={styles.footer}>
+                    {/* Hiển thị assigneeId.username từ API populate */}
                     <Chip icon="account" style={styles.chip} textStyle={{fontSize: 10}}>
-                        {item.assignToUsername || 'Chưa gán'}
+                        {item.assigneeId?.username || item.assignToUsername || 'Chưa gán'}
                     </Chip>
-                    {/* Giả định có trường status hoặc tự tính toán */}
-                    <Text style={styles.status}>Chi tiết {'>'}</Text>
+                    <Text style={styles.status}>
+                         Chi tiết {'>'}
+                    </Text>
                 </View>
             </Card.Content>
         </Card>
     );
 
     return (
-
         <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>Kế Hoạch Mua Sắm</Text>
@@ -136,7 +134,7 @@ const styles = StyleSheet.create({
     card: { marginBottom: 12, borderRadius: 12, backgroundColor: 'white' },
     note: { color: '#6B7280', fontStyle: 'italic', marginBottom: 8, fontSize: 12 },
     footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
-    chip: { backgroundColor: '#F3F4F6', height: 28 },
+    chip: { backgroundColor: '#F3F4F6' },
     status: { fontSize: 12, color: '#6B7280', fontWeight: '600' },
     fab: { position: 'absolute', margin: 16, right: 0, bottom: 0, backgroundColor: '#7C3AED' },
     empty: { alignItems: 'center', marginTop: 50 },
