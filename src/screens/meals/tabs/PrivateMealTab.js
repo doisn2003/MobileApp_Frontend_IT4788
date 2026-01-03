@@ -32,7 +32,8 @@ const PrivateMealTab = () => {
         setLoading(true);
         try {
             const dateStr = date.format('YYYY-MM-DD');
-            const response = await client.get(`/meal?date=${dateStr}`);
+            // Pass current mode for filtering
+            const response = await client.get(`/meal?date=${dateStr}&mode=${mode}`);
             setMeals(response.data.data || []);
         } catch (e) {
             console.log(e);
@@ -57,7 +58,7 @@ const PrivateMealTab = () => {
             fetchMeals();
             fetchMealDates();
         }
-    }, [isFocused, date]);
+    }, [isFocused, date, mode]); // Add mode dependency
 
     const handleOpenAdd = (session) => {
         setTargetSession(session);
@@ -73,7 +74,8 @@ const PrivateMealTab = () => {
                 await client.post('/meal/', {
                     timestamp: date.format('YYYY-MM-DD'),
                     name: targetSession,
-                    recipeId: recipe._id
+                    recipeId: recipe._id,
+                    mode: mode // Save with current mode
                 });
             }
             fetchMeals();
@@ -177,7 +179,7 @@ const PrivateMealTab = () => {
             {loading ? (
                 <View style={styles.centered}><ActivityIndicator /></View>
             ) : (
-                <Refresh style={styles.scroll} contentContainerStyle={{ paddingBottom: 100, paddingLeft: 16  }} onRefresh={fetchMeals}>
+                <Refresh style={styles.scroll} contentContainerStyle={{ paddingBottom: 100, paddingLeft: 16 }} onRefresh={fetchMeals}>
                     {renderSection('Bữa Sáng', 'Sáng')}
                     {renderSection('Bữa Trưa', 'Trưa')}
                     {renderSection('Bữa Tối', 'Tối')}

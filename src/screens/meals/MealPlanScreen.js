@@ -37,7 +37,7 @@ const MealPlanScreen = () => {
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: 'white' },
+    container: { flex: 1, backgroundColor: 'white', paddingTop: 36 },
     header: { padding: 14, backgroundColor: 'white', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
     title: { fontSize: 24, fontWeight: '800', color: '#111827' },
     tabContainer: { padding: 6, backgroundColor: 'white' },
