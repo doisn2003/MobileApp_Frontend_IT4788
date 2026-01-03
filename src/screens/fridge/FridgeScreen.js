@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useContext } from 'react';
-import { View, StyleSheet, FlatList, Alert, ScrollView, TouchableOpacity, StatusBar, SafeAreaView, Platform } from 'react-native';
+import { View, StyleSheet, FlatList, Alert, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, IconButton } from 'react-native-paper';
 import { useIsFocused } from '@react-navigation/native';
 import client from '../../api/client';
@@ -9,10 +10,12 @@ import { FreezerItem, CoolerItem } from '../../components/FoodItem';
 import FoodModal from '../../components/FoodModal';
 import AddFoodModal from '../../components/AddFoodModal';
 import Refresh from '../../components/Refresh';
+import Search from '../../components/Search'; // <--- IMPORT MỚI
 
 const FridgeScreen = () => {
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [searchQuery, setSearchQuery] = useState(''); // <--- STATE TÌM KIẾM
 
     // Selection State
     const [selectedItem, setSelectedItem] = useState(null);
@@ -37,8 +40,8 @@ const FridgeScreen = () => {
             }
         } catch (e) {
             console.log('Fetch Error:', e);
-            if (e.response && e.response.status === 401) {
-                Alert.alert('Session Expired', 'Please login again', [
+            if (e.response && (e.response.status === 401 || e.response.data?.code === '00011')) {
+                Alert.alert('Phiên đăng nhập hết hạn', 'Vui lòng đăng nhập lại', [
                     { text: 'OK', onPress: () => logout() }
                 ]);
             }
@@ -53,15 +56,23 @@ const FridgeScreen = () => {
         }
     }, [isFocused]);
 
-    // Sorting & Filtering
+    // --- XỬ LÝ LỌC VÀ SẮP XẾP ---
     const sortedFreezer = useMemo(() =>
-        items.filter(i => i.compartment === 'Freezer').sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
-        [items]
+        items
+            .filter(i => i.compartment === 'Freezer')
+            // Lọc theo foodId.name (không phải foodName)
+            .filter(i => (i.foodId?.name || '').toLowerCase().includes(searchQuery.toLowerCase()))
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
+        [items, searchQuery]
     );
 
     const sortedCooler = useMemo(() =>
-        items.filter(i => (!i.compartment || i.compartment === 'Cooler')).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
-        [items]
+        items
+            .filter(i => (!i.compartment || i.compartment === 'Cooler'))
+            // Lọc theo foodId.name (không phải foodName)
+            .filter(i => (i.foodId?.name || '').toLowerCase().includes(searchQuery.toLowerCase()))
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
+        [items, searchQuery]
     );
 
     const handleItemClick = (item) => {
@@ -71,19 +82,22 @@ const FridgeScreen = () => {
 
     const handleUpdate = async (id, values) => {
         try {
-            await client.put('/fridge/', { itemId: id, newQuantity: values.quantity });
+            await client.put('/fridge/', { 
+                itemId: id, 
+                newQuantity: values.quantity,
+            });
             fetchFridgeItems();
             setDetailVisible(false);
         } catch (e) {
-            Alert.alert('Error', 'Update failed');
+            Alert.alert('Lỗi', 'Không thể cập nhật thông tin');
         }
     };
 
     const handleDelete = async (foodName) => {
-        Alert.alert('Confirm', 'Delete this item?', [
-            { text: 'Cancel' },
+        Alert.alert('Xác nhận', 'Bạn muốn xóa thực phẩm này khỏi tủ?', [
+            { text: 'Hủy', style: 'cancel' },
             {
-                text: 'Delete',
+                text: 'Xóa',
                 style: 'destructive',
                 onPress: async () => {
                     try {
@@ -91,7 +105,7 @@ const FridgeScreen = () => {
                         setDetailVisible(false);
                         fetchFridgeItems();
                     } catch (e) {
-                        Alert.alert('Error', 'Delete failed');
+                        Alert.alert('Lỗi', 'Xóa thất bại');
                     }
                 }
             }
@@ -108,70 +122,84 @@ const FridgeScreen = () => {
 
     const handleAddItem = async (formData) => {
         try {
-            const data = new FormData();
-            data.append('foodName', formData.foodName);
-            data.append('quantity', formData.quantity);
-            data.append('unitName', formData.unitName);
-            // Use the compartment from the form (which was initialized by our prop, or changed by system logic)
-            // But since user removed selector, we rely on what was passed or default.
-            // AddModel form state should have the correct compartment.
-            data.append('compartment', formData.compartment);
-            data.append('categoryName', formData.categoryName);
-            data.append('useWithin', formData.useWithin);
-            if (formData.note) data.append('note', formData.note);
+            const payload = {
+                foodName: formData.foodName,
+                quantity: formData.quantity,
+                useWithin: formData.useWithin,
+            };
 
-            await client.post('/fridge/', data, {
-                headers: { 'Content-Type': 'multipart/form-data' },
+            await client.post('/fridge/', payload, {
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             });
 
             handleCloseAdd();
             fetchFridgeItems();
-            Alert.alert('Thành công!', 'Đã thêm Thực phẩm vào tủ lạnh!');
+            Alert.alert('Thành công!', 'Đã thêm thực phẩm vào tủ lạnh!');
         } catch (e) {
             console.log(e.response?.data);
-            Alert.alert('Thất bại!', e.response?.data?.message || 'Thêm Thực phẩm vào tủ lạnh thất bại!');
+            const errorCode = e.response?.data?.code;
+            const errorMessage = e.response?.data?.message || 'Thêm thất bại!';
+
+            if (errorCode === '00194') {
+                Alert.alert('Chưa có dữ liệu', `Món "${formData.foodName}" chưa có trong hệ thống. Bạn cần tạo món này trong danh mục thực phẩm trước.`);
+            } else {
+                Alert.alert('Thất bại', errorMessage);
+            }
         }
     };
 
     return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.header}>
-                <Text style={styles.headerTitle}>Tủ Lạnh Gia Đình</Text>
-                <View style={{ flexDirection: 'row' }}>
-                    <IconButton icon="magnify" size={24} iconColor="#9CA3AF" style={styles.searchBtn} />
+        <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+            <View style={styles.headerContainer}>
+                <View style={styles.header}>
+                    <Text style={styles.headerTitle}>Tủ Lạnh Gia Đình</Text>
+                    {/* Đã xóa nút magnify cũ vì có Search bar bên dưới */}
                 </View>
+                
+                {/* --- CHÈN COMPONENT SEARCH --- */}
+                <Search 
+                    onSearch={setSearchQuery} 
+                    placeholder="Tìm món ăn trong tủ..."
+                    containerStyle={{ paddingHorizontal: 24, paddingBottom: 10 }}
+                />
             </View>
 
             <Refresh style={styles.mainScroll} contentContainerStyle={{ paddingBottom: 100 }} onRefresh={fetchFridgeItems}>
                 {/* FREEZER SECTION */}
-                <View style={styles.freezerSection}>
-                    <View style={styles.sectionHeader}>
-                        <View style={styles.sectionTitleRow}>
-                            <IconButton icon="snowflake" size={20} iconColor="#2563EB" style={{ margin: 0 }} />
-                            <Text style={styles.sectionTitleFreezer}>Ngăn Đá</Text>
-                            <View style={styles.countBadgeFreezer}>
-                                <Text style={styles.countTextFreezer}>đang có: {sortedFreezer.length} items</Text>
+                {/* Chỉ hiện section nếu có item (sau khi lọc) hoặc nếu đang không tìm kiếm */}
+                {(sortedFreezer.length > 0 || searchQuery === '') && (
+                    <View style={styles.freezerSection}>
+                        <View style={styles.sectionHeader}>
+                            <View style={styles.sectionTitleRow}>
+                                <IconButton icon="snowflake" size={20} iconColor="#2563EB" style={{ margin: 0 }} />
+                                <Text style={styles.sectionTitleFreezer}>Ngăn Đá</Text>
+                                <View style={styles.countBadgeFreezer}>
+                                    <Text style={styles.countTextFreezer}>đang có: {sortedFreezer.length} items</Text>
+                                </View>
                             </View>
-                        </View>
-                        <TouchableOpacity onPress={() => handleOpenAdd('Freezer')}>
-                            <Text style={[styles.addBtnCooler, { color: '#fff', fontSize: 12, paddingVertical: 4, paddingHorizontal: 8 }]}>+ Thêm</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    <FlatList
-                        horizontal
-                        data={sortedFreezer}
-                        renderItem={({ item }) => <FreezerItem item={item} onClick={handleItemClick} />}
-                        keyExtractor={item => item._id}
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.freezerList}
-                        ListFooterComponent={
-                            <TouchableOpacity style={styles.addPlaceholderFreezer} onPress={() => handleOpenAdd('Freezer')}>
-                                <IconButton icon="plus" size={30} iconColor="#D1D5DB" />
+                            <TouchableOpacity onPress={() => handleOpenAdd('Freezer')}>
+                                <Text style={[styles.addBtnCooler, { color: '#fff', fontSize: 12, paddingVertical: 4, paddingHorizontal: 8 }]}>+ Thêm</Text>
                             </TouchableOpacity>
-                        }
-                    />
-                </View>
+                        </View>
+
+                        <FlatList
+                            horizontal
+                            data={sortedFreezer}
+                            renderItem={({ item }) => <FreezerItem item={item} onClick={handleItemClick} />}
+                            keyExtractor={item => item._id || Math.random().toString()}
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={styles.freezerList}
+                            ListFooterComponent={
+                                <TouchableOpacity style={styles.addPlaceholderFreezer} onPress={() => handleOpenAdd('Freezer')}>
+                                    <IconButton icon="plus" size={30} iconColor="#D1D5DB" />
+                                </TouchableOpacity>
+                            }
+                            ListEmptyComponent={
+                                searchQuery !== '' ? <Text style={styles.emptyText}>Không tìm thấy</Text> : null
+                            }
+                        />
+                    </View>
+                )}
 
                 {/* COOLER SECTION */}
                 <View style={styles.coolerSection}>
@@ -190,13 +218,23 @@ const FridgeScreen = () => {
 
                     <View style={styles.coolerGrid}>
                         {sortedCooler.map(item => (
-                            <View key={item._id} style={styles.gridItemWrapper}>
+                            <View key={item._id || Math.random().toString()} style={styles.gridItemWrapper}>
                                 <CoolerItem item={item} onClick={handleItemClick} />
                             </View>
                         ))}
-                        <TouchableOpacity style={styles.addPlaceholderCooler} onPress={() => handleOpenAdd('Cooler')}>
-                            <IconButton icon="plus" size={30} iconColor="#E5E7EB" />
-                        </TouchableOpacity>
+                        
+                        {/* Chỉ hiện nút thêm nếu không đang tìm kiếm (để giao diện sạch hơn) hoặc luôn hiện tùy ý bạn */}
+                        {searchQuery === '' && (
+                            <TouchableOpacity style={styles.addPlaceholderCooler} onPress={() => handleOpenAdd('Cooler')}>
+                                <IconButton icon="plus" size={30} iconColor="#E5E7EB" />
+                            </TouchableOpacity>
+                        )}
+
+                        {sortedCooler.length === 0 && searchQuery !== '' && (
+                            <Text style={[styles.emptyText, { width: '100%', textAlign: 'center', marginTop: 20 }]}>
+                                Không tìm thấy thực phẩm nào khớp với "{searchQuery}"
+                            </Text>
+                        )}
                     </View>
                 </View>
             </Refresh>
@@ -220,11 +258,12 @@ const FridgeScreen = () => {
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#FFFFFF', paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 16 },
+    container: { flex: 1, backgroundColor: '#FFFFFF' },
+    // Gộp header và search vào một container nền trắng
+    headerContainer: { backgroundColor: '#FFFFFF', paddingBottom: 4 },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 12 },
     headerTitle: { fontSize: 28, fontWeight: '800', color: '#111827' },
-    searchBtn: { backgroundColor: '#F9FAFB' },
-
+    
     mainScroll: { flex: 1 },
 
     // Freezer
@@ -234,19 +273,12 @@ const styles = StyleSheet.create({
     sectionTitleFreezer: { fontSize: 20, fontWeight: '700', color: '#1E3A8A', marginLeft: 4 },
     countBadgeFreezer: { backgroundColor: '#DBEAFE', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12, marginLeft: 8 },
     countTextFreezer: { fontSize: 10, fontWeight: '700', color: '#1D4ED8', textTransform: 'uppercase' },
-    addBtnText: { color: '#7C3AED', fontWeight: 'bold', fontSize: 14 },
-
+    
     freezerList: { paddingHorizontal: 24 },
-    freezerItem: { width: 120, backgroundColor: 'white', borderRadius: 16, padding: 12, marginRight: 16, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
-    freezerImageContainer: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#F9FAFB', overflow: 'hidden', marginBottom: 8 },
-    freezerImage: { width: '100%', height: '100%' },
-    freezerInfo: { alignItems: 'center' },
-    freezerName: { fontSize: 14, fontWeight: '600', color: '#1F2937', textAlign: 'center' },
-    freezerQty: { fontSize: 10, color: '#6B7280' },
     addPlaceholderFreezer: { width: 100, height: 120, borderRadius: 16, borderWidth: 2, borderColor: '#E5E7EB', borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.5)' },
 
     // Cooler
-    coolerSection: { backgroundColor: 'white', borderTopLeftRadius: 32, borderTopRightRadius: 32, marginTop: -16, paddingTop: 32, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 5 },
+    coolerSection: { backgroundColor: 'white', borderTopLeftRadius: 32, borderTopRightRadius: 32, marginTop: -16, paddingTop: 32, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 5, minHeight: 400 },
     sectionTitleCooler: { fontSize: 20, fontWeight: '700', color: '#111827', marginLeft: 4 },
     countBadgeCooler: { backgroundColor: '#ECFDF5', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12, marginLeft: 8 },
     countTextCooler: { fontSize: 10, fontWeight: '700', color: '#047857', textTransform: 'uppercase' },
@@ -255,38 +287,9 @@ const styles = StyleSheet.create({
 
     coolerGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 24, paddingBottom: 100 },
     gridItemWrapper: { width: '33.33%', padding: 6 },
-    coolerItem: { backgroundColor: 'white', borderRadius: 16, padding: 10, borderWidth: 1, borderColor: '#F3F4F6', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.02, elevation: 1 },
-    coolerImageContainer: { width: 50, height: 50, borderRadius: 12, backgroundColor: '#F9FAFB', overflow: 'hidden', marginBottom: 8 },
-    coolerImage: { width: '100%', height: '100%' },
-    coolerName: { fontSize: 11, fontWeight: '600', color: '#1F2937', textAlign: 'center' },
-    coolerQty: { fontSize: 10, color: '#9CA3AF' },
-    textExpired: { color: '#EF4444', fontWeight: '600' },
-    statusDot: { position: 'absolute', top: 8, right: 8, width: 8, height: 8, borderRadius: 4, zIndex: 1 },
     addPlaceholderCooler: { width: '30%', aspectRatio: 1, borderRadius: 16, borderWidth: 2, borderColor: '#F3F4F6', borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', backgroundColor: '#F9FAFB', margin: 6 },
-
-    // Modal
-    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-    modalContent: { backgroundColor: 'white', borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden', height: '80%' },
-    modalHeader: { height: 200, backgroundColor: '#F3F4F6' },
-    modalHeaderImage: { width: '100%', height: '100%' },
-    closeButton: { position: 'absolute', top: 16, right: 16, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 20 },
-    modalBody: { padding: 24, flex: 1 },
-    modalTitle: { fontSize: 24, fontWeight: '800', color: '#111827', marginBottom: 4 },
-    modalSubtitle: { fontSize: 14, fontWeight: '500', color: '#6B7280', marginBottom: 2 },
-    modalNote: { fontSize: 14, fontStyle: 'italic', color: '#4B5563', marginVertical: 8 },
-    modalMeta: { fontSize: 10, fontWeight: 'bold', color: '#9CA3AF', letterSpacing: 1, marginTop: 12 },
-    modalActions: { flexDirection: 'row', marginTop: 24, gap: 12, alignItems: 'center' },
-    btnPrimary: { flex: 1, backgroundColor: '#7C3AED', paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
-    btnPrimaryText: { color: 'white', fontWeight: '700', fontSize: 14 },
-    btnDelete: { backgroundColor: '#FEF2F2', padding: 10, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-
-    // Form
-    formContainer: { marginTop: 10 },
-    inputLabel: { fontSize: 12, fontWeight: '700', color: '#9CA3AF', textTransform: 'uppercase', marginBottom: 4 },
-    input: { backgroundColor: '#F9FAFB', padding: 12, borderRadius: 12, fontSize: 16, marginBottom: 16 },
-    formActions: { flexDirection: 'row', gap: 12, marginTop: 8 },
-    btnCancel: { flex: 1, backgroundColor: '#F3F4F6', paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
-    btnCancelText: { color: '#4B5563', fontWeight: '600' }
+    
+    emptyText: { color: '#9CA3AF', fontStyle: 'italic', paddingLeft: 10 }
 });
 
-export default FridgeScreen;
+export default FridgeScreen;    
