@@ -22,7 +22,7 @@ const DatePicker = ({ date, onDateChange, markedDates }) => {
             markedDates.forEach(d => {
                 marks[d] = {
                     marked: true,
-                    dotColor: '#2563EB' // Blue dot
+                    dotColor: '#25eb28ff' // Blue dot
                 };
             });
         }
@@ -57,7 +57,7 @@ const DatePicker = ({ date, onDateChange, markedDates }) => {
                                 todayTextColor: '#7C3AED',
                                 arrowColor: '#7C3AED',
                                 selectedDayBackgroundColor: '#7C3AED',
-                                dotColor: '#2563EB',
+                                dotColor: '#25eb25ff',
                             }}
                         />
                     </View>
