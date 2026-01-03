@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Image, TouchableOpacity, Modal, TextInput, StyleSheet } from 'react-native';
+import { View, Text, Image, TouchableOpacity, Modal, TextInput, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { IconButton } from 'react-native-paper';
+import * as ImagePicker from 'expo-image-picker';
 import dayjs from 'dayjs';
 import client from '../api/client';
 
 const getImageUrl = (path) => {
     if (!path) return 'https://via.placeholder.com/150';
     if (path.startsWith('http')) return path;
+    if (path.startsWith('file://')) return path; // Support local picked images preview if needed
 
     let baseUrl = client.defaults.baseURL || '';
     if (baseUrl.endsWith('/it4788')) {
@@ -24,6 +26,10 @@ const FoodModal = ({ item, visible, onClose, onSave, onDelete }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [formValues, setFormValues] = useState({ quantity: '', note: '' });
 
+    // Image handling functionality
+    const [imageUri, setImageUri] = useState(null);
+    const [updatingImage, setUpdatingImage] = useState(false);
+
     useEffect(() => {
         if (item) {
             setFormValues({
@@ -31,6 +37,9 @@ const FoodModal = ({ item, visible, onClose, onSave, onDelete }) => {
                 note: item.note || ''
             });
             setIsEditing(false);
+            if (item.foodId?.image) {
+                setImageUri(item.foodId.image);
+            }
         }
     }, [item]);
 
@@ -41,23 +50,117 @@ const FoodModal = ({ item, visible, onClose, onSave, onDelete }) => {
         setIsEditing(false);
     };
 
+    // --- Image Upload Logic ---
+    const handleImagePress = () => {
+        Alert.alert(
+            "Cập nhật ảnh thực phẩm",
+            "Bạn muốn thay đổi ảnh thực phẩm?",
+            [
+                { text: "Hủy", style: "cancel" },
+                { text: "Chụp ảnh", onPress: handleCameraResponse },
+                { text: "Chọn từ thư viện", onPress: handleLibraryResponse }
+            ]
+        );
+    };
+
+    const handleCameraResponse = async () => {
+        const permission = await ImagePicker.requestCameraPermissionsAsync();
+        if (permission.status !== 'granted') {
+            Alert.alert("Quyền truy cập", "Ứng dụng cần quyền truy cập camera để chụp ảnh.");
+            return;
+        }
+        const result = await ImagePicker.launchCameraAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.8,
+        });
+        if (!result.canceled) {
+            uploadImage(result.assets[0]);
+        }
+    };
+
+    const handleLibraryResponse = async () => {
+        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (permission.status !== 'granted') {
+            Alert.alert("Quyền truy cập", "Ứng dụng cần quyền truy cập thư viện ảnh.");
+            return;
+        }
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.8,
+        });
+        if (!result.canceled) {
+            uploadImage(result.assets[0]);
+        }
+    };
+
+    const uploadImage = async (asset) => {
+        try {
+            setUpdatingImage(true);
+            const formData = new FormData();
+            formData.append('name', item.foodId.name); // Backend requires 'name' to identify food
+            formData.append('image', {
+                uri: asset.uri,
+                name: asset.fileName || 'upload.jpg',
+                type: asset.mimeType || 'image/jpeg'
+            });
+
+            // Call PUT /food/
+            const res = await client.put('/food', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
+            if (res.data && res.data.data) {
+                // Update local image URI immediately
+                setImageUri(res.data.data.image);
+                Alert.alert("Thành công", "Đã cập nhật ảnh thực phẩm!");
+            }
+        } catch (error) {
+            console.error("Upload error:", error);
+            Alert.alert("Lỗi", "Không thể tải ảnh lên. Vui lòng thử lại.");
+        } finally {
+            setUpdatingImage(false);
+        }
+    };
+
     return (
         <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
             <View style={styles.modalOverlay}>
                 <View style={styles.modalContent}>
-                    {/* Header Image */}
-                    <View style={styles.modalHeader}>
-                        <Image source={{ uri: getImageUrl(item.foodId?.image) }} style={styles.modalHeaderImage} />
+                    {/* Header Image - Interactive now */}
+                    <TouchableOpacity
+                        style={styles.modalHeader}
+                        onPress={handleImagePress}
+                        activeOpacity={0.9}
+                    >
+                        <Image source={{ uri: getImageUrl(imageUri) }} style={styles.modalHeaderImage} />
+
+                        {/* Overlay for indication */}
+                        <View style={styles.imageOverlay}>
+                            <IconButton icon="camera" iconColor="white" size={24} style={styles.cameraIcon} />
+                        </View>
+
+                        {updatingImage && (
+                            <View style={styles.loadingOverlay}>
+                                <ActivityIndicator size="large" color="white" />
+                            </View>
+                        )}
+
                         <TouchableOpacity onPress={onClose} style={styles.closeButton}>
                             <IconButton icon="close" iconColor="white" size={20} />
                         </TouchableOpacity>
-                    </View>
+                    </TouchableOpacity>
 
                     <View style={styles.modalBody}>
                         {!isEditing ? (
                             <>
                                 <View>
-                                    <Text style={styles.modalTitle}>{item.foodId?.name}</Text>
+                                    <View style={styles.titleRow}>
+                                        <Text style={styles.modalTitle}>{item.foodId?.name}</Text>
+                                    </View>
                                     <Text style={styles.modalSubtitle}>Số lượng: {item.quantity}</Text>
                                     <Text style={styles.modalSubtitle}>Hạn sử dụng: {dayjs(item.useWithin).format('DD/MM/YYYY')}</Text>
                                     {item.note && <Text style={styles.modalNote}>Ghi chú: {item.note}</Text>}
@@ -111,10 +214,14 @@ const FoodModal = ({ item, visible, onClose, onSave, onDelete }) => {
 const styles = StyleSheet.create({
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
     modalContent: { backgroundColor: 'white', borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden', height: '80%' },
-    modalHeader: { height: 200, backgroundColor: '#F3F4F6' },
+    modalHeader: { height: 200, backgroundColor: '#F3F4F6', position: 'relative' },
     modalHeaderImage: { width: '100%', height: '100%' },
+    imageOverlay: { position: 'absolute', bottom: 10, right: 10, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 20 },
+    cameraIcon: { margin: 0 },
+    loadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
     closeButton: { position: 'absolute', top: 16, right: 16, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 20 },
     modalBody: { padding: 24, flex: 1 },
+    titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     modalTitle: { fontSize: 24, fontWeight: '800', color: '#111827', marginBottom: 4 },
     modalSubtitle: { fontSize: 14, fontWeight: '500', color: '#6B7280', marginBottom: 2 },
     modalNote: { fontSize: 14, fontStyle: 'italic', color: '#4B5563', marginVertical: 8 },

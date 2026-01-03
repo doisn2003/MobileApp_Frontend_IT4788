@@ -8,6 +8,7 @@ import { AuthContext } from '../../contexts/AuthContext';
 import { FreezerItem, CoolerItem } from '../../components/FoodItem';
 import FoodModal from '../../components/FoodModal';
 import AddFoodModal from '../../components/AddFoodModal';
+import Refresh from '../../components/Refresh';
 
 const FridgeScreen = () => {
     const [items, setItems] = useState([]);
@@ -141,7 +142,7 @@ const FridgeScreen = () => {
                 </View>
             </View>
 
-            <ScrollView style={styles.mainScroll} contentContainerStyle={{ paddingBottom: 100 }}>
+            <Refresh style={styles.mainScroll} contentContainerStyle={{ paddingBottom: 100 }} onRefresh={fetchFridgeItems}>
                 {/* FREEZER SECTION */}
                 <View style={styles.freezerSection}>
                     <View style={styles.sectionHeader}>
@@ -198,7 +199,7 @@ const FridgeScreen = () => {
                         </TouchableOpacity>
                     </View>
                 </View>
-            </ScrollView>
+            </Refresh>
 
             <FoodModal
                 item={selectedItem}

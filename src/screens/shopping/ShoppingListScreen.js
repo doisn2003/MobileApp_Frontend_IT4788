@@ -4,6 +4,7 @@ import { Text, List, FAB, Dialog, TextInput, Button, ActivityIndicator, IconButt
 import client from '../../api/client';
 import { useIsFocused } from '@react-navigation/native';
 import dayjs from 'dayjs';
+import Refresh from '../../components/Refresh';
 
 const ShoppingListScreen = () => {
     const [lists, setLists] = useState([]);
@@ -78,12 +79,21 @@ const ShoppingListScreen = () => {
 
     return (
         <View style={styles.container}>
-            <FlatList
-                data={lists}
-                keyExtractor={item => item._id || item.id || Math.random().toString()}
-                renderItem={renderItem}
-                ListEmptyComponent={<View style={styles.centered}><Text>No shopping lists found.</Text></View>}
-            />
+            <Refresh onRefresh={fetchLists}>
+                {lists.length === 0 && (
+                    <View style={styles.centered}><Text style={{ marginTop: 20 }}>No shopping lists found.</Text></View>
+                )}
+                {lists.map(item => (
+                    <List.Item
+                        key={item._id || item.id || Math.random().toString()}
+                        title={item.name}
+                        description={`Date: ${dayjs(item.date).format('DD/MM/YYYY')}`}
+                        left={props => <List.Icon {...props} icon="cart-outline" />}
+                        right={props => <IconButton {...props} icon="delete" onPress={() => handleDeleteList(item._id || item.id)} />}
+                        onPress={() => Alert.alert('Info', 'Task management details would go here')}
+                    />
+                ))}
+            </Refresh>
             <FAB
                 style={styles.fab}
                 icon="plus"

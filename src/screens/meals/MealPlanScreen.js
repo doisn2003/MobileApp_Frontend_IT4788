@@ -4,6 +4,7 @@ import { Text, List, FAB, Dialog, TextInput, Button, ActivityIndicator, IconButt
 import client from '../../api/client';
 import { useIsFocused } from '@react-navigation/native';
 import dayjs from 'dayjs';
+import Refresh from '../../components/Refresh';
 
 const MealPlanScreen = () => {
     const [meals, setMeals] = useState([]);
@@ -82,12 +83,21 @@ const MealPlanScreen = () => {
             {loading ? (
                 <View style={styles.centered}><ActivityIndicator /></View>
             ) : (
-                <FlatList
-                    data={meals}
-                    keyExtractor={item => item._id || item.id || Math.random().toString()}
-                    renderItem={renderItem}
-                    ListEmptyComponent={<View style={styles.centered}><Text>No meals planned for this day.</Text></View>}
-                />
+                <Refresh style={{ flex: 1 }} onRefresh={fetchMeals}>
+                    {meals.length === 0 ? (
+                        <View style={styles.centered}><Text style={{ marginTop: 20 }}>No meals planned for this day.</Text></View>
+                    ) : (
+                        meals.map(item => (
+                            <List.Item
+                                key={item._id || item.id || Math.random().toString()}
+                                title={item.foodName}
+                                description={item.mealType}
+                                left={props => <List.Icon {...props} icon="food-fork-drink" />}
+                                right={props => <IconButton {...props} icon="delete" onPress={() => handleDeleteMeal(item._id || item.id)} />}
+                            />
+                        ))
+                    )}
+                </Refresh>
             )}
 
             <FAB
