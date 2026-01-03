@@ -1,11 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Alert } from 'react-native';
-import { Text, List, FAB, Dialog, TextInput, Button, ActivityIndicator, IconButton, SegmentedButtons } from 'react-native-paper';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, StyleSheet, Alert, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
 import client from '../../../api/client';
 import { useIsFocused } from '@react-navigation/native';
 import dayjs from 'dayjs';
 import Refresh from '../../../components/Refresh';
 import DatePicker from '../../../components/DatePicker';
+import RecipeItem from '../../../components/RecipeItem'; // Reusing
+import RecipeSelectionModal from '../../../components/RecipeSelectionModal';
+import RecipeModal from '../../../components/RecipeModal';
 
 const FamilyMealTab = () => {
     const [meals, setMeals] = useState([]);
@@ -14,11 +17,13 @@ const FamilyMealTab = () => {
     const [date, setDate] = useState(dayjs());
     const isFocused = useIsFocused();
 
-    // Dialog state
-    const [visible, setVisible] = useState(false);
-    const [foodName, setFoodName] = useState('');
-    const [mealType, setMealType] = useState('Breakfast');
-    const [addLoading, setAddLoading] = useState(false);
+    // Add Modal State
+    const [selectionVisible, setSelectionVisible] = useState(false);
+    const [targetSession, setTargetSession] = useState(null); // 'Sáng', 'Trưa', 'Tối'
+
+    // Detail Modal State
+    const [detailVisible, setDetailVisible] = useState(false);
+    const [selectedDetail, setSelectedDetail] = useState(null);
 
     const fetchMeals = async () => {
         setLoading(true);
@@ -51,33 +56,92 @@ const FamilyMealTab = () => {
         }
     }, [isFocused, date]);
 
-    const handleAddMeal = async () => {
-        if (!foodName) return;
-        setAddLoading(true);
+    const handleOpenAdd = (session) => {
+        setTargetSession(session);
+        setSelectionVisible(true);
+    };
+
+    const handleAddMeals = async (selectedRecipes) => {
+        setSelectionVisible(false);
+        if (!selectedRecipes || selectedRecipes.length === 0) return;
+
         try {
-            await client.post('/meal/', {
-                date: date.format('YYYY-MM-DD'),
-                name: mealType, // Fixed incorrect key from 'mealType' to 'name' as per backend logic in Controller (req.body.name is session)
-                foodName
-            });
-            setFoodName('');
-            setVisible(false);
+            // Loop add
+            for (const recipe of selectedRecipes) {
+                await client.post('/meal/', {
+                    timestamp: date.format('YYYY-MM-DD'), // Changed from date to timestamp
+                    name: targetSession,
+                    recipeId: recipe._id
+                });
+            }
             fetchMeals();
             fetchMealDates();
         } catch (e) {
-            console.log(e.response?.data);
-            Alert.alert('Error', 'Failed to add meal');
-        } finally {
-            setAddLoading(false);
+            console.log(e);
+            Alert.alert('Error', 'Failed to add meals');
         }
     };
 
     const handleDeleteMeal = async (planId) => {
-        try {
-            await client.delete('/meal/', { data: { planId } });
-            fetchMeals();
-            fetchMealDates();
-        } catch (e) { Alert.alert('Error', 'Failed to delete'); }
+        // Confirmation before delete
+        Alert.alert('Xác nhận', 'Bạn có chắc muốn xóa món này?', [
+            { text: 'Hủy', style: 'cancel' },
+            {
+                text: 'Xóa', style: 'destructive', onPress: async () => {
+                    try {
+                        await client.delete('/meal/', { data: { planId } });
+                        // No need to close detailVisible here since we might delete from list directly
+                        if (detailVisible) setDetailVisible(false);
+                        fetchMeals();
+                        fetchMealDates();
+                    } catch (e) { Alert.alert('Error', 'Failed to delete'); }
+                }
+            }
+        ]);
+    };
+
+    const handleItemPress = (mealPlanItem) => {
+        const detail = mealPlanItem.recipeId || mealPlanItem.foodId;
+        setSelectedDetail({ ...detail, planId: mealPlanItem._id });
+        setDetailVisible(true);
+    };
+
+    // Rendering Sections
+    const renderSection = (title, sessionKey) => {
+        const sessionMeals = meals.filter(m => m.session && m.session.toLowerCase() === sessionKey.toLowerCase());
+
+        return (
+            <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>{title}</Text>
+                    <View style={styles.badge}>
+                        <Text style={styles.badgeText}>{sessionMeals.length}</Text>
+                    </View>
+                </View>
+
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.listContent}>
+                    {sessionMeals.map((planItem) => {
+                        const displayItem = planItem.recipeId || planItem.foodId || { name: 'Unknown', image: null };
+                        return (
+                            <View key={planItem._id} style={styles.cardWrapper}>
+                                <RecipeItem
+                                    item={displayItem}
+                                    onPress={() => handleItemPress(planItem)}
+                                    compact={true} // 70% size
+                                    onDelete={() => handleDeleteMeal(planItem._id)} // Delete button
+                                />
+                            </View>
+                        );
+                    })}
+
+                    {/* Add Placeholder - also reduced size */}
+                    <TouchableOpacity style={styles.addPlaceholder} onPress={() => handleOpenAdd(sessionKey)}>
+                        <IconButton icon="plus" size={24} iconColor="#D1D5DB" />
+                        <Text style={styles.addText}>Thêm</Text>
+                    </TouchableOpacity>
+                </ScrollView>
+            </View>
+        );
     };
 
     return (
@@ -95,65 +159,95 @@ const FamilyMealTab = () => {
             {loading ? (
                 <View style={styles.centered}><ActivityIndicator /></View>
             ) : (
-                <Refresh style={{ flex: 1 }} onRefresh={fetchMeals}>
-                    {meals.length === 0 ? (
-                        <View style={styles.centered}><Text style={{ marginTop: 20 }}>Không có bữa ăn nào.</Text></View>
-                    ) : (
-                        meals.map(item => (
-                            <List.Item
-                                key={item._id || item.id || Math.random().toString()}
-                                title={item.foodName || item.foodId?.name}
-                                description={item.session || item.mealType}
-                                left={props => <List.Icon {...props} icon="food-fork-drink" />}
-                                right={props => <IconButton {...props} icon="delete" onPress={() => handleDeleteMeal(item._id || item.id)} />}
-                            />
-                        ))
-                    )}
+                <Refresh style={styles.scroll} contentContainerStyle={{ paddingBottom: 100, paddingLeft: 16 }} onRefresh={fetchMeals}>
+                    {renderSection('Bữa Sáng', 'Sáng')}
+                    {renderSection('Bữa Trưa', 'Trưa')}
+                    {renderSection('Bữa Tối', 'Tối')}
                 </Refresh>
             )}
 
-            <FAB
-                style={styles.fab}
-                icon="plus"
-                label="Thêm Bữa Ăn"
-                onPress={() => setVisible(true)}
+            <RecipeSelectionModal
+                visible={selectionVisible}
+                onClose={() => setSelectionVisible(false)}
+                onAdd={handleAddMeals}
             />
 
-            <Dialog visible={visible} onDismiss={() => setVisible(false)}>
-                <Dialog.Title>Thêm bữa ăn chung</Dialog.Title>
-                <Dialog.Content>
-                    <TextInput
-                        label="Tên món ăn (trong tủ lạnh)"
-                        value={foodName}
-                        onChangeText={setFoodName}
-                        mode="outlined"
-                        style={{ marginBottom: 10 }}
-                    />
-                    <Text style={{ marginBottom: 5 }}>Bữa:</Text>
-                    <SegmentedButtons
-                        value={mealType}
-                        onValueChange={setMealType}
-                        buttons={[
-                            { value: 'Sáng', label: 'Sáng' },
-                            { value: 'Trưa', label: 'Trưa' },
-                            { value: 'Tối', label: 'Tối' },
-                        ]}
-                    />
-                </Dialog.Content>
-                <Dialog.Actions>
-                    <Button onPress={() => setVisible(false)}>Hủy</Button>
-                    <Button onPress={handleAddMeal} loading={addLoading}>Thêm</Button>
-                </Dialog.Actions>
-            </Dialog>
+            {/* Reuse RecipeModal or create a specific MealDetailModal? 
+                RecipeModal has delete logic for Recipe. 
+                We want to delete MealPlan. 
+                Let's hijack onDelete. 
+            */}
+            {selectedDetail && (
+                <RecipeModal
+                    visible={detailVisible}
+                    item={selectedDetail}
+                    onClose={() => setDetailVisible(false)}
+                    onDelete={() => handleDeleteMeal(selectedDetail.planId)}
+                // Pass a prop to indicate this is a MealPlan view if RecipeModal needs different buttons? 
+                // Current RecipeModal likely shows "Delete" which calls onDelete. Perfect.
+                />
+            )}
         </View>
     );
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#f5f5f5' },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 10, backgroundColor: '#fff', elevation: 2 },
-    centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
-    fab: { position: 'absolute', margin: 16, right: 0, bottom: 0 },
+    container: { flex: 1, backgroundColor: '#f5f5f5'},
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 5, backgroundColor: '#fff', elevation: 2 },
+    centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 2},
+    scroll: { flex: 1, padding: 16 },
+
+    section: {
+        marginBottom: 16, // Reduced margin
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    sectionTitle: {
+        fontSize: 18, // Reduced font size
+        fontWeight: 'bold',
+        color: '#1F2937'
+    },
+    badge: {
+        backgroundColor: '#E5E7EB',
+        borderRadius: 12,
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        marginLeft: 8
+    },
+    badgeText: {
+        fontSize: 11,
+        fontWeight: 'bold',
+        color: '#4B5563'
+    },
+    listContent: {
+        alignItems: 'center',
+        paddingRight: 20
+    },
+    cardWrapper: {
+        width: 140, // Reduced from 200
+        marginRight: 10,
+    },
+    addPlaceholder: {
+        width: 90, // Reduced for compact look
+        height: 90,
+        borderRadius: 12,
+        borderWidth: 2,
+        borderColor: '#E5E7EB',
+        borderStyle: 'dashed',
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.5)',
+        marginRight: 12
+    },
+    addText: {
+        fontSize: 12,
+        color: '#9CA3AF',
+        fontWeight: '600',
+        marginTop: 4
+    }
 });
 
 export default FamilyMealTab;

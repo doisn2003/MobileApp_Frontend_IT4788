@@ -11,7 +11,7 @@ const MealPlanScreen = () => {
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
-                <Text style={styles.title}>Thực Đơn & Công Thức</Text>
+                <Text style={styles.title}>Lên Kế Hoạch Bữa Ăn</Text>
             </View>
 
             <View style={styles.tabContainer}>
@@ -37,10 +37,10 @@ const MealPlanScreen = () => {
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#f5f5f5', paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 },
-    header: { padding: 16, backgroundColor: 'white', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
+    container: { flex: 1, backgroundColor: 'white' },
+    header: { padding: 14, backgroundColor: 'white', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
     title: { fontSize: 24, fontWeight: '800', color: '#111827' },
-    tabContainer: { padding: 12, backgroundColor: 'white' },
+    tabContainer: { padding: 6, backgroundColor: 'white' },
     segmentedBtn: {},
     content: { flex: 1 }
 });

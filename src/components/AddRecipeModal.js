@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { View, Text, Modal, TextInput, StyleSheet, TouchableOpacity, ScrollView, Alert, Image } from 'react-native';
 import { IconButton } from 'react-native-paper';
 import * as ImagePicker from 'expo-image-picker';
+import client from '../api/client';
 
-const AddRecipeModal = ({ visible, onClose, onAdd }) => {
+const AddRecipeModal = ({ visible, onClose, onAdd, initialData = null }) => {
     const [form, setForm] = useState({
         name: '',
         description: '',
@@ -12,6 +13,41 @@ const AddRecipeModal = ({ visible, onClose, onAdd }) => {
         nutrition: { kcal: '', protein: '', fat: '', carb: '' },
     });
     const [imageUri, setImageUri] = useState(null);
+
+    // Initial Data Logic
+    React.useEffect(() => {
+        if (visible) {
+            if (initialData) {
+                // Populate Logic
+                setForm({
+                    name: initialData.name || '',
+                    description: initialData.description || '',
+                    htmlContent: initialData.htmlContent || '',
+                    ingredients: initialData.ingredients ? initialData.ingredients.map(i => ({
+                        name: i.name,
+                        quantity: i.quantity?.toString(),
+                        unit: i.unit
+                    })) : [{ name: '', quantity: '', unit: '' }],
+                    nutrition: {
+                        kcal: initialData.nutrition?.kcal?.toString(),
+                        protein: initialData.nutrition?.protein?.toString(),
+                        fat: initialData.nutrition?.fat?.toString(),
+                        carb: initialData.nutrition?.carb?.toString()
+                    }
+                });
+                if (initialData.image && initialData.image.startsWith('http')) {
+                    setImageUri(initialData.image);
+                } else if (initialData.image) {
+                    const baseUrl = client.defaults.baseURL.replace('/it4788', '').replace(/\/$/, '');
+                    const cleanPath = initialData.image.replace(/\\/g, '/');
+                    const finalPath = cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
+                    setImageUri(`${baseUrl}${finalPath}`);
+                }
+            } else {
+                resetForm();
+            }
+        }
+    }, [visible, initialData]);
 
     const resetForm = () => {
         setForm({
