@@ -226,7 +226,7 @@ const FridgeScreen = () => {
                             </View>
                         ))}
 
-                        {/* Chỉ hiện nút thêm nếu không đang tìm kiếm (để giao diện sạch hơn) hoặc luôn hiện tùy ý bạn */}
+                        {/* Chỉ hiện nút thêm nếu không đang tìm kiếm (để giao diện sạch hơn) */}
                         {searchQuery === '' && (
                             <TouchableOpacity style={styles.addPlaceholderCooler} onPress={() => handleOpenAdd('Cooler')}>
                                 <IconButton icon="plus" size={30} iconColor="#E5E7EB" />
@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
     mainScroll: { flex: 1 },
 
     // Freezer
-    freezerSection: { backgroundColor: '#EFF6FF', paddingBottom: 24, paddingTop: 8 },
+    freezerSection: { backgroundColor: '#EFF6FF', paddingBottom: 24, paddingTop: 8, borderTopLeftRadius: 32, borderTopRightRadius: 32 },
     sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, marginBottom: 16 },
     sectionTitleRow: { flexDirection: 'row', alignItems: 'center' },
     sectionTitleFreezer: { fontSize: 20, fontWeight: '700', color: '#1E3A8A', marginLeft: 4 },
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
     addPlaceholderFreezer: { width: 100, height: 120, borderRadius: 16, borderWidth: 2, borderColor: '#E5E7EB', borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.5)' },
 
     // Cooler
-    coolerSection: { backgroundColor: 'white', borderTopLeftRadius: 32, borderTopRightRadius: 32, marginTop: -16, paddingTop: 32, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 5, minHeight: 400 },
+    coolerSection: { backgroundColor: 'white', borderTopLeftRadius: 32, borderTopRightRadius: 32, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, marginTop: -16, paddingTop: 32, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 5, minHeight: 400 },
     sectionTitleCooler: { fontSize: 20, fontWeight: '700', color: '#111827', marginLeft: 4 },
     countBadgeCooler: { backgroundColor: '#ECFDF5', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12, marginLeft: 8 },
     countTextCooler: { fontSize: 10, fontWeight: '700', color: '#047857', textTransform: 'uppercase' },
