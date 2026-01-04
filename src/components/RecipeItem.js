@@ -58,10 +58,11 @@ const RecipeItem = ({ item, onPress, onLongPress, isSelected, isSelectMode, onDe
             </View>
             <Card.Content style={styles.content}>
                 <Text style={[styles.title, { fontSize: titleSize }]} numberOfLines={2}>{item.name}</Text>
+                <View>
+                    <Text style={styles.description}>{item.description}</Text>
+                </View>
                 <View style={styles.metaRow}>
                     <Text style={styles.metaText}>{stats.kcal} kcal</Text>
-                    <Text style={styles.metaTextDot}>•</Text>
-                    <Text style={styles.metaText}>{stats.protein}g protein</Text>
                 </View>
             </Card.Content>
         </Card>
@@ -119,14 +120,19 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: '#1F2937',
         marginBottom: 2,
-        height: 36
+        height: 20
+    },
+    description: {
+        fontSize: 12,
+        color: '#6B7280',
+        marginBottom: 1,
     },
     metaRow: {
         flexDirection: 'row',
         alignItems: 'center',
     },
     metaText: {
-        fontSize: 10,
+        fontSize: 14,
         color: '#6B7280',
         fontWeight: '500'
     },
