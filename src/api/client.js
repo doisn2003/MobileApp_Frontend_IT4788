@@ -6,7 +6,7 @@ import * as SecureStore from 'expo-secure-store';
 // iOS Simulator: http://localhost:3000/it4788
 // Physical Device: http://<YOUR_LAN_IP>:3000/it4788
 
-const BASE_URL = 'http://192.168.101.20:3000/it4788';
+const BASE_URL = 'http://10.0.2.2:3000/it4788';
 
 
 const client = axios.create({

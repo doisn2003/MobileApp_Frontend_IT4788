@@ -1,8 +1,11 @@
 import { registerRootComponent } from 'expo';
-
+import messaging from '@react-native-firebase/messaging';
+import { handleBackgroundNotification } from './src/notifications/notification.handlers';
 import App from './App';
 
-// registerRootComponent calls AppRegistry.registerComponent('main', () => App);
-// It also ensures that whether you load the app in Expo Go or in a native build,
-// the environment is set up appropriately
+// Đăng ký background message handler
+// PHẢI đặt NGOÀI component, TRƯỚC khi registerRootComponent
+messaging().setBackgroundMessageHandler(handleBackgroundNotification);
+
+// Register the main component
 registerRootComponent(App);
