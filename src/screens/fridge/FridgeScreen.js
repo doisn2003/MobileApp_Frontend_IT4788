@@ -40,10 +40,9 @@ const FridgeScreen = () => {
             }
         } catch (e) {
             console.log('Fetch Error:', e);
+            // 401 hoặc mã 00011 -> Token lỗi/hết hạn -> Auto Logout
             if (e.response && (e.response.status === 401 || e.response.data?.code === '00011')) {
-                Alert.alert('Phiên đăng nhập hết hạn', 'Vui lòng đăng nhập lại', [
-                    { text: 'OK', onPress: () => logout() }
-                ]);
+                logout(); // Hàm logout từ AuthContext sẽ xóa token trong SecureStore
             }
         } finally {
             setLoading(false);
@@ -82,8 +81,8 @@ const FridgeScreen = () => {
 
     const handleUpdate = async (id, values) => {
         try {
-            await client.put('/fridge/', { 
-                itemId: id, 
+            await client.put('/fridge/', {
+                itemId: id,
                 newQuantity: values.quantity,
             });
             fetchFridgeItems();
@@ -126,6 +125,10 @@ const FridgeScreen = () => {
                 foodName: formData.foodName,
                 quantity: formData.quantity,
                 useWithin: formData.useWithin,
+                compartment: formData.compartment, // Thêm dòng này để fix lỗi Ngăn Mát
+                categoryName: formData.categoryName, // Gửi thêm để tạo món mới nếu cần
+                unitName: formData.unitName,
+                note: formData.note
             };
 
             await client.post('/fridge/', payload, {
@@ -155,10 +158,10 @@ const FridgeScreen = () => {
                     <Text style={styles.headerTitle}>Tủ Lạnh Gia Đình</Text>
                     {/* Đã xóa nút magnify cũ vì có Search bar bên dưới */}
                 </View>
-                
+
                 {/* --- CHÈN COMPONENT SEARCH --- */}
-                <Search 
-                    onSearch={setSearchQuery} 
+                <Search
+                    onSearch={setSearchQuery}
                     placeholder="Tìm món ăn trong tủ..."
                     containerStyle={{ paddingHorizontal: 24, paddingBottom: 10 }}
                 />
@@ -222,7 +225,7 @@ const FridgeScreen = () => {
                                 <CoolerItem item={item} onClick={handleItemClick} />
                             </View>
                         ))}
-                        
+
                         {/* Chỉ hiện nút thêm nếu không đang tìm kiếm (để giao diện sạch hơn) hoặc luôn hiện tùy ý bạn */}
                         {searchQuery === '' && (
                             <TouchableOpacity style={styles.addPlaceholderCooler} onPress={() => handleOpenAdd('Cooler')}>
@@ -263,7 +266,7 @@ const styles = StyleSheet.create({
     headerContainer: { backgroundColor: '#FFFFFF', paddingBottom: 4 },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 12 },
     headerTitle: { fontSize: 28, fontWeight: '800', color: '#111827' },
-    
+
     mainScroll: { flex: 1 },
 
     // Freezer
@@ -273,7 +276,7 @@ const styles = StyleSheet.create({
     sectionTitleFreezer: { fontSize: 20, fontWeight: '700', color: '#1E3A8A', marginLeft: 4 },
     countBadgeFreezer: { backgroundColor: '#DBEAFE', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12, marginLeft: 8 },
     countTextFreezer: { fontSize: 10, fontWeight: '700', color: '#1D4ED8', textTransform: 'uppercase' },
-    
+
     freezerList: { paddingHorizontal: 24 },
     addPlaceholderFreezer: { width: 100, height: 120, borderRadius: 16, borderWidth: 2, borderColor: '#E5E7EB', borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.5)' },
 
@@ -288,7 +291,7 @@ const styles = StyleSheet.create({
     coolerGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 24, paddingBottom: 100 },
     gridItemWrapper: { width: '33.33%', padding: 6 },
     addPlaceholderCooler: { width: '30%', aspectRatio: 1, borderRadius: 16, borderWidth: 2, borderColor: '#F3F4F6', borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', backgroundColor: '#F9FAFB', margin: 6 },
-    
+
     emptyText: { color: '#9CA3AF', fontStyle: 'italic', paddingLeft: 10 }
 });
 
