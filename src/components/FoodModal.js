@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Image, TouchableOpacity, Modal, TextInput, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, Image, TouchableOpacity, Modal, TextInput, StyleSheet, Alert, ActivityIndicator, Platform } from 'react-native';
 import { IconButton } from 'react-native-paper';
 import * as ImagePicker from 'expo-image-picker';
 import dayjs from 'dayjs';
@@ -101,18 +101,27 @@ const FoodModal = ({ item, visible, onClose, onSave, onDelete }) => {
 
     const uploadImage = async (asset) => {
         try {
-            setUpdatingImage(true);
+            // Prepare form data
             const formData = new FormData();
-            formData.append('name', item.foodId.name); // Backend requires 'name' to identify food
+            formData.append('name', item.foodId?.name || 'food_item');
+
+            // Handle URI for Android if needed (though Expo usually handles it)
+            let uri = asset.uri;
+            if (Platform.OS === 'android' && !uri.startsWith('file://') && !uri.startsWith('content://')) {
+                uri = `file://${uri}`;
+            }
+
             formData.append('image', {
-                uri: asset.uri,
+                uri: uri,
                 name: asset.fileName || 'upload.jpg',
                 type: asset.mimeType || 'image/jpeg'
             });
 
             // Call PUT /food/
+            // Important: Set 'Content-Type': null to force Axios to remove the default 'application/json' 
+            // and let the browser/engine set 'multipart/form-data; boundary=...'
             const res = await client.put('/food', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
+                headers: { 'Content-Type': null }
             });
 
             if (res.data && res.data.data) {
