@@ -1,6 +1,66 @@
 import messaging from '@react-native-firebase/messaging';
+import notifee, { AndroidImportance } from '@notifee/react-native';
 import { navigate } from '../navigation/NavigationRef';
-import { Alert } from 'react-native';
+import { Platform } from 'react-native';
+
+// Helper: hiển thị local notification bằng Notifee
+async function displayLocalNotification(remoteMessage) {
+    try {
+        const { notification, data } = remoteMessage || {};
+        const title = notification?.title || data?.title || null;
+        const body = notification?.body || data?.body || null;
+
+        if (!title && !body) {
+            console.log('⚠️ No title or body to display in notification');
+            return null;
+        }
+        console.log('🔔 Preparing to display notification:', { title, body });
+
+        // QUAN TRỌNG: Đảm bảo channel tồn tại trước khi display
+        let channelId = 'default';
+        if (Platform.OS === 'android') {
+            channelId = await notifee.createChannel({
+                id: 'default',
+                name: 'Thông báo mặc định',
+                importance: AndroidImportance.HIGH,
+                sound: 'default',
+                vibration: true,
+                vibrationPattern: [300, 500],
+            });
+            console.log('✅ Channel created/verified:', channelId);
+        }
+
+        // Hiển thị system notification
+        const notificationId = await notifee.displayNotification({
+            title,
+            body,
+            android: {
+                channelId,
+                importance: AndroidImportance.HIGH,
+                pressAction: {
+                    id: 'default',
+                },
+                // Thêm các thuộc tính hiển thị
+                smallIcon: 'ic_launcher', // Dùng icon mặc định
+                sound: 'default',
+                vibrationPattern: [300, 500],
+                showTimestamp: true,
+                timestamp: Date.now(),
+            },
+            ios: {
+                sound: 'default',
+            },
+            data: data || {},
+        });
+
+        console.log('✅ Notification displayed with ID:', notificationId);
+        return notificationId;
+
+    } catch (error) {
+        console.error('❌ Error displaying notification:', error);
+        throw error;
+    }
+}
 
 /**
  * Xử lý khi người dùng nhấn vào notification
@@ -13,36 +73,23 @@ export function handleNotificationOpen(remoteMessage) {
             console.log('📱 App opened without notification');
             return;
         }
-
+        const { data, notification } = remoteMessage;
         console.log('📱 Notification caused app to open:', remoteMessage);
 
-        const { data, notification } = remoteMessage;
-
         // PLACEHOLDER: Xử lý navigation dựa trên data
-        // Backend gửi data từ notification.service.js
-        
         if (data?.type === 'new_member') {
-            // Từ group.controller.js - addMember()
             console.log('→ Navigate to GroupMembers');
             navigate('GroupMembers', { groupId: data.groupId });
         } 
         else if (data?.type === 'removed_from_group') {
-            // Từ group.controller.js - removeMember()
             console.log('→ Navigate to Home (removed from group)');
             navigate('Home');
-            
-            // TODO: Có thể hiển thị alert
-            setTimeout(() => {
-                Alert.alert('Thông báo', notification?.body || 'Bạn đã bị xóa khỏi nhóm');
-            }, 500);
         }
         else if (data?.type === 'fridge_expiry') {
-            // Từ fridge.controller.js - cron job
             console.log('→ Navigate to Fridge (item expiring)');
             navigate('Fridge');
         }
         else {
-            // Default: Navigate về Home
             console.log('→ Navigate to Home (default)');
             navigate('Home');
         }
@@ -56,30 +103,10 @@ export function handleNotificationOpen(remoteMessage) {
  * Xử lý khi nhận notification trong khi app đang foreground
  * @param {object} remoteMessage - Remote message từ FCM
  */
-export function handleForegroundNotification(remoteMessage) {
+export async function handleForegroundNotification(remoteMessage) {
     try {
         console.log('📬 Notification received in foreground:', remoteMessage);
-
-        const { notification, data } = remoteMessage;
-
-        // PLACEHOLDER: Có thể hiển thị custom notification UI
-        // Vì mặc định FCM không hiển thị notification khi app foreground
-        
-        Alert.alert(
-            notification?.title || 'Thông báo mới',
-            notification?.body || 'Bạn có một thông báo mới',
-            [
-                { text: 'Đóng', style: 'cancel' },
-                {
-                    text: 'Xem',
-                    onPress: () => handleNotificationOpen(remoteMessage)
-                }
-            ]
-        );
-
-        // TODO: Có thể thay bằng custom toast/modal đẹp hơn
-        // TODO: Hoặc cập nhật badge count, refresh data
-
+        await displayLocalNotification(remoteMessage);
     } catch (error) {
         console.error('❌ Error handling foreground notification:', error);
     }
@@ -87,18 +114,21 @@ export function handleForegroundNotification(remoteMessage) {
 
 /**
  * Xử lý khi nhận notification trong background
- * Hàm này PHẢI được đăng ký NGOÀI component (trong index.js hoặc App.js top level)
+ * Hàm này PHẢI được đăng ký NGOÀI component (trong index.js)
  * @param {object} remoteMessage - Remote message từ FCM
  */
 export async function handleBackgroundNotification(remoteMessage) {
     console.log('📦 Background notification received:', remoteMessage);
-    
-    // TODO: Có thể thực hiện tasks như:
-    // - Cập nhật local database
-    // - Tải dữ liệu mới
-    // - Hiển thị local notification
-    // - Update badge
-    
-    // LƯU Ý: Hàm này chạy trong background, không có access đến UI
-    // Không dùng Alert, Toast, hoặc navigation ở đây
+    try {
+        // ✅ Chặn duplicate: có notification payload => system đã hiện
+        if (remoteMessage?.notification?.title || remoteMessage?.notification?.body) {
+        console.log('⏭️ Skip Notifee in background (system notification already shown).');
+        return;
+        }
+
+        // ✅ Data-only => tự hiện bằng Notifee
+        await displayLocalNotification(remoteMessage);
+    } catch (error) {
+        console.error('❌ Error handling background notification:', error);
+    }
 }

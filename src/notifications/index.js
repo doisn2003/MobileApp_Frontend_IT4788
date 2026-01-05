@@ -1,3 +1,4 @@
+import notifee, { EventType } from '@notifee/react-native';
 import messaging from '@react-native-firebase/messaging';
 import { requestNotificationPermissions, checkNotificationPermissions } from './notification.permissions';
 import { 
@@ -57,7 +58,6 @@ export async function initializeNotifications() {
 
         // Bước 5: Lưu token vào storage
         await saveFCMToken(fcmToken);
-
         console.log('✅ Firebase notification system initialized successfully');
         return true;
 
@@ -75,27 +75,43 @@ export async function initializeNotifications() {
 export function registerNotificationListeners() {
     console.log('📡 Registering notification listeners...');
 
-    // Listener 1: Khi app được mở từ notification (background/killed state)
+    // Listener 1: FCM - App opened from background
     messaging().onNotificationOpenedApp(remoteMessage => {
-        console.log('📱 App opened from background by notification');
+        console.log('📱 App opened from background by FCM notification');
         handleNotificationOpen(remoteMessage);
     });
 
-    // Listener 2: Kiểm tra xem app có được mở từ notification không (killed state)
+    // Listener 2: FCM - App opened from killed state
     messaging()
         .getInitialNotification()
         .then(remoteMessage => {
             if (remoteMessage) {
-                console.log('📱 App opened from killed state by notification');
+                console.log('📱 App opened from killed state by FCM notification');
                 handleNotificationOpen(remoteMessage);
             }
         });
 
-    // Listener 3: Khi nhận notification trong foreground
+    // Listener 3: FCM - Foreground message
     const unsubscribeForeground = messaging().onMessage(handleForegroundNotification);
 
-    // Listener 4: Khi token refresh
+    // Listener 4: FCM - Token refresh
     const unsubscribeTokenRefresh = registerTokenRefreshListener();
+
+    // THÊM LISTENER 5: Notifee - User tap notification
+    const unsubscribeNotifee = notifee.onForegroundEvent(({ type, detail }) => {
+        if (type === EventType.PRESS) {
+            console.log('📱 User pressed Notifee notification:', detail.notification);
+            // Reconstruct remoteMessage format
+            const remoteMessage = {
+                data: detail.notification?.data || {},
+                notification: {
+                    title: detail.notification?.title,
+                    body: detail.notification?.body,
+                }
+            };
+            handleNotificationOpen(remoteMessage);
+        }
+    });
 
     console.log('✅ Notification listeners registered');
 
@@ -103,6 +119,7 @@ export function registerNotificationListeners() {
     return () => {
         unsubscribeForeground();
         unsubscribeTokenRefresh();
+        unsubscribeNotifee();
         console.log('🧹 Notification listeners cleaned up');
     };
 }

@@ -23,7 +23,12 @@
       },
       "edgeToEdgeEnabled": true,
       "googleServicesFile": "./google-services.json",
-      "package": "com.mobileapp.it4788"
+      "package": "com.mobileapp.it4788",
+      "permissions": [
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "POST_NOTIFICATIONS"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
