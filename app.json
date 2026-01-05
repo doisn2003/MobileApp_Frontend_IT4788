@@ -28,7 +28,7 @@
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",
         "POST_NOTIFICATIONS"
-      ]
+      ],
       "softwareKeyboardLayoutMode": "pan"
     },
     "web": {

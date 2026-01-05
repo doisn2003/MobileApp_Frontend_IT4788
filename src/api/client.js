@@ -1,13 +1,13 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
+import * as Constants from '../../constants.js';
 
 // CHANGE THIS URL BASED ON YOUR ENV
 // Android Emulator: http://10.0.2.2:3000/it4788
 // iOS Simulator: http://localhost:3000/it4788
 // Physical Device: http://<YOUR_LAN_IP>:3000/it4788
 
-const BASE_URL = 'http://192.168.1.10:3000/it4788';
-
+const BASE_URL = Constants.API_BASE_URL;
 
 const client = axios.create({
     baseURL: BASE_URL,
