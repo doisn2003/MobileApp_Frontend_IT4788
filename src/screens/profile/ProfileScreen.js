@@ -1,29 +1,11 @@
-
-// import React, { useContext } from 'react';
-// import { View, StyleSheet } from 'react-native';
-// import { Button, Text } from 'react-native-paper';
-// import { AuthContext } from '../../contexts/AuthContext';
-
-// const ProfileScreen = () => {
-//     const { logout, userInfo } = useContext(AuthContext);
-//     return (
-//         <View style={styles.container}>
-//             <Text style={{ marginBottom: 20 }}>User: {userInfo?.name || 'User'}</Text>
-//             <Button mode="contained" onPress={logout}>Logout</Button>
-//         </View>
-//     );
-// };
-
-// const styles = StyleSheet.create({
-//     container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }
-// });
-
-// export default ProfileScreen;
 import React, { useContext, useState } from 'react';
 import { View, StyleSheet, ScrollView, Image, TouchableOpacity, Alert, SafeAreaView } from 'react-native';
 import { Text, List, Divider, Avatar, Switch } from 'react-native-paper';
 import { AuthContext } from '../../contexts/AuthContext';
 import { EditProfileModal, ChangePasswordModal } from '../../components/ProfileModals';
+
+// Định nghĩa Base URL để load ảnh (Giống trong api/client.js)
+const BASE_URL = 'http://192.168.1.18:3000/it4788'; 
 
 const ProfileScreen = ({ navigation }) => {
     const { logout, userInfo, updateUser } = useContext(AuthContext);
@@ -32,7 +14,6 @@ const ProfileScreen = ({ navigation }) => {
     const [editVisible, setEditVisible] = useState(false);
     const [passwordVisible, setPasswordVisible] = useState(false);
     
-    // Setting States (Giả lập)
     const [notifications, setNotifications] = useState(true);
 
     const handleLogout = () => {
@@ -40,6 +21,22 @@ const ProfileScreen = ({ navigation }) => {
             { text: 'Hủy', style: 'cancel' },
             { text: 'Đăng xuất', onPress: logout, style: 'destructive' }
         ]);
+    };
+
+    // [FIX HIỂN THỊ ẢNH]
+    const getAvatarUri = (avatarPath) => {
+        if (!avatarPath) return null;
+        // Nếu là ảnh từ máy (file://...) hoặc ảnh mạng (http...) thì giữ nguyên
+        if (avatarPath.startsWith('http') || avatarPath.startsWith('file')) {
+            return { uri: avatarPath };
+        }
+        // Nếu là đường dẫn tương đối từ server (/uploads/...) thì nối thêm Base URL
+        // Cần đảm bảo đường dẫn không bị double slash
+        const cleanPath = avatarPath.startsWith('/') ? avatarPath.substring(1) : avatarPath;
+        // BASE_URL trong file client.js thường đã có /it4788
+        // Nếu server trả về full path /it4788/uploads... thì cẩn thận trùng lặp
+        // Ở đây giả định server trả về đường dẫn tĩnh
+        return { uri: `${BASE_URL}/${cleanPath}` };
     };
 
     return (
@@ -50,7 +47,11 @@ const ProfileScreen = ({ navigation }) => {
                 <View style={styles.header}>
                     <View style={styles.avatarContainer}>
                         {userInfo?.avatar ? (
-                            <Image source={{ uri: userInfo.avatar }} style={styles.avatar} />
+                            <Image 
+                                source={getAvatarUri(userInfo.avatar)} 
+                                style={styles.avatar} 
+                                // Thêm default source hoặc xử lý lỗi load ảnh nếu cần
+                            />
                         ) : (
                             <Avatar.Text size={80} label={userInfo?.name?.substring(0,2).toUpperCase() || 'US'} style={{backgroundColor: '#7C3AED'}} />
                         )}
@@ -83,8 +84,7 @@ const ProfileScreen = ({ navigation }) => {
                     />
                 </View>
 
-                {/* Admin Section -  Chỉ hiển thị nếu cần quản lý danh mục/đơn vị */}
-                {/* Giả định: Kiểm tra role hoặc luôn hiện để demo */}
+                {/* Admin Section */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Quản trị hệ thống (Admin)</Text>
                     <List.Item
@@ -132,7 +132,6 @@ const ProfileScreen = ({ navigation }) => {
                 onClose={() => setPasswordVisible(false)} 
             />
         </SafeAreaView>
-
     );
 };
 
@@ -141,7 +140,7 @@ const styles = StyleSheet.create({
     scrollContent: { paddingBottom: 40 },
     header: { alignItems: 'center', padding: 24, backgroundColor: 'white', marginBottom: 12 },
     avatarContainer: { position: 'relative', marginBottom: 12 },
-    avatar: { width: 80, height: 80, borderRadius: 40 },
+    avatar: { width: 80, height: 80, borderRadius: 40, borderWidth: 1, borderColor: '#E5E7EB' },
     editIcon: { position: 'absolute', bottom: 0, right: 0 },
     name: { fontSize: 20, fontWeight: 'bold', color: '#111827' },
     email: { fontSize: 14, color: '#6B7280', marginTop: 4 },

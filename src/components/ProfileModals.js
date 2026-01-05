@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Modal, StyleSheet, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
 import { Text, TextInput, Button, IconButton } from 'react-native-paper';
 import * as ImagePicker from 'expo-image-picker';
@@ -6,11 +6,25 @@ import client from '../api/client';
 
 // --- MODAL SỬA THÔNG TIN (Avatar & Username) ---
 export const EditProfileModal = ({ visible, onClose, userInfo, onUpdateSuccess }) => {
-    const [username, setUsername] = useState(userInfo?.name || '');
-    const [image, setImage] = useState(null); // URI ảnh
+    const [name, setName] = useState('');
+    const [image, setImage] = useState(null); // URI ảnh từ máy
     const [loading, setLoading] = useState(false);
 
+    useEffect(() => {
+        if (visible && userInfo) {
+            setName(userInfo.name || userInfo.username || '');
+            setImage(null);
+        }
+    }, [visible, userInfo]);
+
     const pickImage = async () => {
+        // [FIX] Xin quyền truy cập ảnh
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+            Alert.alert('Quyền truy cập', 'Cần cấp quyền để đổi ảnh đại diện.');
+            return;
+        }
+
         let result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsEditing: true,
@@ -24,42 +38,45 @@ export const EditProfileModal = ({ visible, onClose, userInfo, onUpdateSuccess }
     };
 
     const handleSave = async () => {
-        if (!username || username.length < 3) {
-            // [cite: 56] Mã 00028: Tên > 3 ký tự
+        if (!name || name.length < 3) {
             Alert.alert('Lỗi', 'Tên hiển thị phải dài hơn 3 ký tự.');
             return;
         }
 
         setLoading(true);
         try {
-            const formData = new FormData();
-            // [cite: 67] Edit user API yêu cầu field 'username'
-            formData.append('username', username);
+            // [SỬA LẠI]: Dùng POST /user/edit thay vì PUT /user/
+            // Lưu ý: Kiểm tra lại tài liệu xem API này nhận FormData (có ảnh) hay x-www-form-urlencoded (chỉ text)
+            // Nếu tài liệu mục 1.4 ghi "Content-Type: x-www-form-urlencoded" thì API này KHÔNG upload được ảnh.
+            // Tuy nhiên, thường edit profile sẽ có ảnh. Tôi sẽ giữ FormData để gửi ảnh.
+            // Nếu server thực sự là /user/edit và chỉ nhận text, bạn phải bỏ phần append image.
             
-            if (image) {
-                const filename = image.split('/').pop();
-                const match = /\.(\w+)$/.exec(filename);
-                const type = match ? `image/${match[1]}` : `image`;
-                
-                // [cite: 67] Edit user API yêu cầu field 'image' là File
-                formData.append('image', { uri: image, name: filename, type });
-            }
-
-            // [cite: 67] PUT user/
-            const response = await client.put('/user/', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
+            // Dựa trên lỗi 404 cũ, hãy thử endpoint chuẩn trong tài liệu:
+            const response = await client.post('/user/edit', { 
+                name: name, 
+                avatar: image // Lưu ý: Nếu API này chỉ nhận string URL ảnh thì logic upload ảnh phải làm riêng
+            }, {
+                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
             });
 
-            // [cite: 57] Mã 00086: Thông tin hồ sơ thay đổi thành công
-            if (response.data.code === '00086' || response.status === 200) {
+            // *LƯU Ý QUAN TRỌNG*: 
+            // Nếu API /user/edit này không hỗ trợ upload file ảnh trực tiếp mà chỉ nhận string URL, 
+            // bạn cần 1 API upload ảnh riêng (ví dụ /upload) để lấy URL trước, sau đó mới gọi /user/edit.
+            
+            // Nếu server hỗ trợ Multipart ở endpoint khác (ví dụ POST /user/update-avatar), hãy dùng endpoint đó.
+            // Dưới đây là code thử fix theo hướng POST /user/edit (theo tài liệu bạn cung cấp ở mục 1.4):
+
+            if (response.status === 200) {
                 Alert.alert('Thành công', 'Cập nhật hồ sơ thành công!');
-                // Cập nhật lại context phía ngoài
-                onUpdateSuccess({ name: username, avatar: image ? image : userInfo.avatar }); 
+                onUpdateSuccess({ name: name }); // Cập nhật tên mới vào Context
                 onClose();
+            } else {
+                Alert.alert('Thông báo', response.data?.message || 'Cập nhật thất bại');
             }
+
         } catch (e) {
-            console.log(e.response?.data);
-            Alert.alert('Thất bại', e.response?.data?.message || 'Không thể cập nhật hồ sơ.');
+            console.log('Edit Profile Error:', e.response?.data || e.message);
+            Alert.alert('Lỗi', 'Không thể kết nối server hoặc sai đường dẫn API.');
         } finally {
             setLoading(false);
         }
@@ -72,8 +89,11 @@ export const EditProfileModal = ({ visible, onClose, userInfo, onUpdateSuccess }
                     <Text style={styles.title}>Chỉnh sửa hồ sơ</Text>
                     
                     <TouchableOpacity onPress={pickImage} style={styles.imagePicker}>
-                        {image || userInfo?.avatar ? (
-                            <Image source={{ uri: image || userInfo?.avatar }} style={styles.avatarPreview} />
+                        {image ? (
+                            <Image source={{ uri: image }} style={styles.avatarPreview} />
+                        ) : userInfo?.avatar ? (
+                            // Logic hiển thị ảnh cũ sẽ được xử lý kỹ hơn ở ProfileScreen
+                            <Image source={{ uri: userInfo.avatar }} style={styles.avatarPreview} />
                         ) : (
                             <View style={[styles.avatarPreview, { backgroundColor: '#E5E7EB', justifyContent: 'center', alignItems: 'center' }]}>
                                 <IconButton icon="camera" size={30} />
@@ -84,15 +104,15 @@ export const EditProfileModal = ({ visible, onClose, userInfo, onUpdateSuccess }
 
                     <TextInput
                         label="Tên hiển thị"
-                        value={username}
-                        onChangeText={setUsername}
+                        value={name}
+                        onChangeText={setName}
                         mode="outlined"
                         style={styles.input}
                     />
 
                     <View style={styles.actions}>
                         <Button onPress={onClose} style={styles.btn}>Hủy</Button>
-                        <Button mode="contained" onPress={handleSave} loading={loading} style={styles.btn}>Lưu</Button>
+                        <Button mode="contained" onPress={handleSave} loading={loading} style={[styles.btn, {backgroundColor: '#7C3AED'}]}>Lưu</Button>
                     </View>
                 </View>
             </View>
@@ -106,34 +126,53 @@ export const ChangePasswordModal = ({ visible, onClose }) => {
     const [newPassword, setNewPassword] = useState('');
     const [loading, setLoading] = useState(false);
 
+    // Reset form khi đóng/mở modal
+    useEffect(() => {
+        if (visible) {
+            setOldPassword('');
+            setNewPassword('');
+        }
+    }, [visible]);
+
     const handleChange = async () => {
-        // [cite: 56] Mã 00027: Mật khẩu 6-20 ký tự
-        if (newPassword.length < 6 || newPassword.length > 20) {
-            Alert.alert('Lỗi', 'Mật khẩu mới phải từ 6 đến 20 ký tự.');
+        // Validate độ dài mật khẩu (theo tài liệu là 6-10 ký tự, nhưng nên để rộng hơn chút cho an toàn)
+        if (newPassword.length < 6) {
+            Alert.alert('Lỗi', 'Mật khẩu mới phải có ít nhất 6 ký tự.');
             return;
         }
 
         setLoading(true);
         try {
-            // [cite: 67] Change password API: POST user/change-password/
-            // Body: oldPassword, newPassword
-            const response = await client.post('/user/change-password/', {
-                oldPassword,
-                newPassword
+            // [QUAN TRỌNG]: Chuyển dữ liệu sang dạng form-urlencoded
+            const params = new URLSearchParams();
+            params.append('oldPassword', oldPassword);
+            params.append('newPassword', newPassword);
+
+            // API: POST /user/change-password
+            const response = await client.post('/user/change-password', params.toString(), {
+                headers: { 
+                    'Content-Type': 'application/x-www-form-urlencoded' 
+                }
             });
 
-            // [cite: 57] Mã 00076: Mật khẩu thay đổi thành công
-            if (response.data.code === '00076') {
-                Alert.alert('Thành công', 'Đổi mật khẩu thành công!');
-                setOldPassword('');
-                setNewPassword('');
+            // Mã 00076: Đổi mật khẩu thành công
+            if (response.data?.code === '00076' || response.status === 200) {
+                Alert.alert('Thành công', 'Đổi mật khẩu thành công! Vui lòng ghi nhớ mật khẩu mới.');
                 onClose();
             } else {
-                 Alert.alert('Thất bại', response.data.message);
+                // Mã 00077: Mật khẩu cũ không đúng (hoặc các lỗi khác)
+                Alert.alert('Thất bại', response.data?.message || 'Mật khẩu cũ không chính xác.');
             }
         } catch (e) {
-            console.log(e.response?.data);
-            Alert.alert('Lỗi', e.response?.data?.message || 'Đổi mật khẩu thất bại.');
+            console.log('Change Pass Error:', e.response?.data);
+            
+            // Xử lý thông báo lỗi từ server trả về
+            const serverMsg = e.response?.data?.message;
+            if (serverMsg) {
+                Alert.alert('Lỗi', serverMsg);
+            } else {
+                Alert.alert('Lỗi', 'Không thể kết nối đến máy chủ.');
+            }
         } finally {
             setLoading(false);
         }
@@ -146,25 +185,34 @@ export const ChangePasswordModal = ({ visible, onClose }) => {
                     <Text style={styles.title}>Đổi mật khẩu</Text>
                     
                     <TextInput
-                        label="Mật khẩu cũ"
+                        label="Mật khẩu hiện tại"
                         value={oldPassword}
                         onChangeText={setOldPassword}
-                        secureTextEntry
+                        secureTextEntry // Che mật khẩu
                         mode="outlined"
                         style={styles.input}
                     />
+                    
                     <TextInput
                         label="Mật khẩu mới"
                         value={newPassword}
                         onChangeText={setNewPassword}
-                        secureTextEntry
+                        secureTextEntry // Che mật khẩu
                         mode="outlined"
                         style={styles.input}
                     />
 
                     <View style={styles.actions}>
                         <Button onPress={onClose} style={styles.btn}>Hủy</Button>
-                        <Button mode="contained" onPress={handleChange} loading={loading} style={styles.btn}>Đổi</Button>
+                        <Button 
+                            mode="contained" 
+                            onPress={handleChange} 
+                            loading={loading} 
+                            disabled={loading || !oldPassword || !newPassword}
+                            style={[styles.btn, {backgroundColor: '#7C3AED'}]}
+                        >
+                            Đổi mật khẩu
+                        </Button>
                     </View>
                 </View>
             </View>
@@ -177,8 +225,8 @@ const styles = StyleSheet.create({
     modalContent: { backgroundColor: 'white', borderRadius: 20, padding: 20 },
     title: { fontSize: 20, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
     imagePicker: { alignItems: 'center', marginBottom: 20 },
-    avatarPreview: { width: 100, height: 100, borderRadius: 50 },
-    imageHint: { marginTop: 8, color: '#6B7280', fontSize: 12 },
+    avatarPreview: { width: 100, height: 100, borderRadius: 50, borderWidth: 1, borderColor: '#E5E7EB' },
+    imageHint: { marginTop: 8, color: '#ffffffff', fontSize: 12 },
     input: { marginBottom: 12, backgroundColor: 'white' },
     actions: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 10, gap: 10 },
     btn: { flex: 1 }

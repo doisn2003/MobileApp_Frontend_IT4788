@@ -9,7 +9,7 @@ import * as SecureStore from 'expo-secure-store';
 import dayjs from 'dayjs';
 
 // TODO: Nên đưa vào biến môi trường hoặc config chung
-const SOCKET_URL = 'http://192.168.1.10:3000';
+const SOCKET_URL = 'http://192.168.0.103:3000';
 
 const GroupScreen = () => {
     const [messages, setMessages] = useState([]);

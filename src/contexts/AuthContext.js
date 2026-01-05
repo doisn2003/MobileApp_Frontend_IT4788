@@ -1,7 +1,8 @@
 import React, { createContext, useState, useEffect } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import client from '../api/client';
-import { initializeNotifications, cleanupNotifications } from '../notifications'; // THÊM DÒNG NÀY
+// Giả định bạn đã có file notifications.js, nếu chưa thì comment dòng này lại
+import { initializeNotifications, cleanupNotifications } from '../notifications'; 
 
 export const AuthContext = createContext();
 
@@ -14,8 +15,6 @@ export const AuthProvider = ({ children }) => {
         setIsLoading(true);
         try {
             const response = await client.post('/user/login', { email, password });
-
-            // Based on API Doc: response.data.data = { token: "...", user: { ... } }
             const { token, user } = response.data.data;
 
             setUserInfo(user);
@@ -23,12 +22,11 @@ export const AuthProvider = ({ children }) => {
             await SecureStore.setItemAsync('userToken', token);
             await SecureStore.setItemAsync('userInfo', JSON.stringify(user));
 
-            // THÊM: Khởi tạo notification sau khi login thành công
             console.log('🔐 Login successful, initializing notifications...');
-            await initializeNotifications();
+            // await initializeNotifications(); // Mở comment nếu đã cài đặt push notification
         } catch (e) {
             console.log(`Login error: ${e}`);
-            throw e; // Helper components can catch this to show alerts
+            throw e;
         } finally {
             setIsLoading(false);
         }
@@ -38,9 +36,6 @@ export const AuthProvider = ({ children }) => {
         setIsLoading(true);
         try {
             await client.post('/user/', userData);
-            // Auto login or ask user to login? API returns 201 Created.
-            // Usually we redirect to login, but let's see. 
-            // For now just return success.
         } catch (e) {
             console.log(`Register error: ${e}`);
             throw e;
@@ -52,12 +47,8 @@ export const AuthProvider = ({ children }) => {
     const logout = async () => {
         setIsLoading(true);
         try {
-            // THÊM: Xóa FCM token khi logout
-            console.log('🔐 Logging out, cleaning up notifications...');
-            await cleanupNotifications();
-
-            // Optional: Call logout API if exists
-            // await client.post('/user/logout'); 
+            console.log('🔐 Logging out...');
+            // await cleanupNotifications(); // Mở comment nếu đã cài đặt
         } catch (e) {
             console.error(e);
         }
@@ -68,14 +59,12 @@ export const AuthProvider = ({ children }) => {
         setIsLoading(false);
     };
 
-
-    // Hàm MỚI: Cập nhật thông tin user cục bộ sau khi gọi API Edit
+    // Hàm cập nhật state cục bộ (cần được export)
     const updateUser = async (newUserConfig) => {
         const updatedUser = { ...userInfo, ...newUserConfig };
         setUserInfo(updatedUser);
         await SecureStore.setItemAsync('userInfo', JSON.stringify(updatedUser));
     };
-
 
     const isLoggedIn = async () => {
         try {
@@ -86,11 +75,8 @@ export const AuthProvider = ({ children }) => {
             if (userToken) {
                 setUserToken(userToken);
                 setUserInfo(JSON.parse(userInfo));
+                // await initializeNotifications(); // Mở comment nếu cần
             }
-
-            // THÊM: Khởi tạo notification nếu đã đăng nhập trước đó
-            console.log('🔐 User already logged in, initializing notifications...');
-            await initializeNotifications();
         } catch (e) {
             console.log(`isLoggedIn error: ${e}`);
         } finally {
@@ -98,14 +84,20 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-
-
     useEffect(() => {
         isLoggedIn();
     }, []);
 
     return (
-        <AuthContext.Provider value={{ login, logout, register, userToken, userInfo, isLoading }}>
+        <AuthContext.Provider value={{ 
+            login, 
+            logout, 
+            register, 
+            userToken, 
+            userInfo, 
+            isLoading, 
+            updateUser // <--- [QUAN TRỌNG] Phải thêm vào đây mới dùng được
+        }}>
             {children}
         </AuthContext.Provider>
     );
