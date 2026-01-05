@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import client from '../api/client';
+import { initializeNotifications, cleanupNotifications } from '../notifications'; // THÊM DÒNG NÀY
 
 export const AuthContext = createContext();
 
@@ -21,6 +22,10 @@ export const AuthProvider = ({ children }) => {
             setUserToken(token);
             await SecureStore.setItemAsync('userToken', token);
             await SecureStore.setItemAsync('userInfo', JSON.stringify(user));
+
+            // THÊM: Khởi tạo notification sau khi login thành công
+            console.log('🔐 Login successful, initializing notifications...');
+            await initializeNotifications();
         } catch (e) {
             console.log(`Login error: ${e}`);
             throw e; // Helper components can catch this to show alerts
@@ -47,6 +52,10 @@ export const AuthProvider = ({ children }) => {
     const logout = async () => {
         setIsLoading(true);
         try {
+            // THÊM: Xóa FCM token khi logout
+            console.log('🔐 Logging out, cleaning up notifications...');
+            await cleanupNotifications();
+
             // Optional: Call logout API if exists
             // await client.post('/user/logout'); 
         } catch (e) {
@@ -78,6 +87,10 @@ export const AuthProvider = ({ children }) => {
                 setUserToken(userToken);
                 setUserInfo(JSON.parse(userInfo));
             }
+
+            // THÊM: Khởi tạo notification nếu đã đăng nhập trước đó
+            console.log('🔐 User already logged in, initializing notifications...');
+            await initializeNotifications();
         } catch (e) {
             console.log(`isLoggedIn error: ${e}`);
         } finally {
