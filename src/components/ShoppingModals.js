@@ -6,14 +6,14 @@ import client from '../api/client';
 import DatePicker from './DatePicker'; // <--- IMPORT MỚI
 
 // --- MODAL TẠO DANH SÁCH MỚI ---
-export const CreateListModal = ({ visible, onClose, onSuccess, selectedDate }) => {
+export const CreateListModal = ({ visible, onClose, onSuccess, selectedDate, initialTasks, initialName }) => {
     const [name, setName] = useState('');
     const [note, setNote] = useState('');
     const [assignee, setAssignee] = useState('');
-    
+
     // State ngày dạng chuỗi để gửi API - sử dụng selectedDate từ parent hoặc hôm nay
-    const [dateStr, setDateStr] = useState(dayjs().format('YYYY-MM-DD')); 
-    
+    const [dateStr, setDateStr] = useState(dayjs().format('YYYY-MM-DD'));
+
     const [members, setMembers] = useState([]);
 
     useEffect(() => {
@@ -25,8 +25,9 @@ export const CreateListModal = ({ visible, onClose, onSuccess, selectedDate }) =
             } else {
                 setDateStr(dayjs().format('YYYY-MM-DD'));
             }
+            if (initialName) setName(initialName);
         }
-    }, [visible, selectedDate]);
+    }, [visible, selectedDate, initialName]);
 
     const fetchMembers = async () => {
         try {
@@ -50,16 +51,32 @@ export const CreateListModal = ({ visible, onClose, onSuccess, selectedDate }) =
             params.append('date', dateStr); // Gửi chuỗi ngày đã chọn
             params.append('assignToUsername', assignee);
             params.append('note', note);
-            
-            await client.post('/shopping/', params.toString(), {
+
+            const res = await client.post('/shopping/', params.toString(), {
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
             });
+
+            // Nếu có initialTasks (từ RecipeModal chẳng hạn), thêm luôn vào list
+            if (initialTasks && initialTasks.length > 0 && res.data && res.data.data) {
+                const newListId = res.data.data._id;
+                // Gọi API thêm task
+                const taskPayload = {
+                    listId: newListId,
+                    tasks: initialTasks.map(task => ({
+                        foodName: task.foodName || task.name,
+                        quantity: task.quantity
+                    }))
+                };
+                await client.post('/shopping/task/', taskPayload, {
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            }
 
             Alert.alert('Thành công', 'Đã tạo danh sách mua sắm');
             onSuccess();
             onClose();
-            
-            setName(''); setNote(''); setAssignee(''); 
+
+            setName(''); setNote(''); setAssignee('');
             setDateStr(dayjs().format('YYYY-MM-DD'));
         } catch (e) {
             console.log("Create List Error:", e.response?.data);
@@ -72,36 +89,36 @@ export const CreateListModal = ({ visible, onClose, onSuccess, selectedDate }) =
             <View style={styles.overlay}>
                 <View style={styles.container}>
                     <Text style={styles.title}>Tạo Danh Sách Mới</Text>
-                    
-                    <TextInput label="Tên (vd: Tiệc cuối tuần)" value={name} onChangeText={setName} style={styles.input} mode="outlined"/>
-                    
+
+                    <TextInput label="Tên (vd: Tiệc cuối tuần)" value={name} onChangeText={setName} style={styles.input} mode="outlined" />
+
                     {/* THAY THẾ TEXTINPUT BẰNG DATEPICKER */}
                     <View style={styles.dateRow}>
                         <Text style={styles.label}>Ngày đi chợ:</Text>
-                        <DatePicker 
+                        <DatePicker
                             date={dayjs(dateStr)} // Chuyển chuỗi sang dayjs object cho component
                             onDateChange={(d) => setDateStr(d.format('YYYY-MM-DD'))} // Chuyển dayjs về chuỗi
                         />
                     </View>
 
-                    <TextInput label="Ghi chú" value={note} onChangeText={setNote} style={styles.input} mode="outlined"/>
+                    <TextInput label="Ghi chú" value={note} onChangeText={setNote} style={styles.input} mode="outlined" />
 
                     <Text style={styles.label}>Gán cho:</Text>
                     <ScrollView style={styles.memberList}>
                         <RadioButton.Group onValueChange={setAssignee} value={assignee}>
                             {members.length > 0 ? members.map(m => (
-                                <RadioButton.Item 
-                                    key={m.username} 
-                                    label={m.name || m.username} 
-                                    value={m.username} 
+                                <RadioButton.Item
+                                    key={m.username}
+                                    label={m.name || m.username}
+                                    value={m.username}
                                 />
                             )) : <Text style={styles.hint}>Bạn chưa có nhóm (Tạo ở tab Nhóm)</Text>}
                         </RadioButton.Group>
                     </ScrollView>
 
                     <View style={styles.row}>
-                        <Button onPress={onClose} style={{flex:1}}>Hủy</Button>
-                        <Button mode="contained" onPress={handleCreate} style={{flex:1}}>Tạo</Button>
+                        <Button onPress={onClose} style={{ flex: 1 }}>Hủy</Button>
+                        <Button mode="contained" onPress={handleCreate} style={{ flex: 1 }}>Tạo</Button>
                     </View>
                 </View>
             </View>
@@ -131,7 +148,7 @@ export const AddTaskModal = ({ visible, onClose, listId, onSuccess }) => {
 
             onSuccess();
             setFoodName(''); setQuantity('1');
-            
+
             Alert.alert('Đã thêm', 'Bạn có muốn thêm món khác không?', [
                 { text: 'Xong', onPress: onClose },
                 { text: 'Thêm tiếp' }
@@ -147,11 +164,11 @@ export const AddTaskModal = ({ visible, onClose, listId, onSuccess }) => {
             <View style={styles.overlay}>
                 <View style={styles.container}>
                     <Text style={styles.title}>Thêm món cần mua</Text>
-                    <TextInput label="Tên món" value={foodName} onChangeText={setFoodName} style={styles.input} mode="outlined"/>
-                    <TextInput label="Số lượng" value={quantity} onChangeText={setQuantity} style={styles.input} mode="outlined"/>
+                    <TextInput label="Tên món" value={foodName} onChangeText={setFoodName} style={styles.input} mode="outlined" />
+                    <TextInput label="Số lượng" value={quantity} onChangeText={setQuantity} style={styles.input} mode="outlined" />
                     <View style={styles.row}>
-                        <Button onPress={onClose} style={{flex:1}}>Đóng</Button>
-                        <Button mode="contained" onPress={handleAddTask} style={{flex:1}}>Thêm</Button>
+                        <Button onPress={onClose} style={{ flex: 1 }}>Đóng</Button>
+                        <Button mode="contained" onPress={handleAddTask} style={{ flex: 1 }}>Thêm</Button>
                     </View>
                 </View>
             </View>

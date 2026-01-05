@@ -26,21 +26,28 @@ const getImageUrl = (path) => {
     return `${baseUrl}${finalPath}`;
 };
 
-export const FreezerItem = ({ item, onClick }) => (
-    <TouchableOpacity
-        style={styles.freezerItem}
-        onPress={() => onClick(item)}
-        activeOpacity={0.9}
-    >
-        <View style={styles.freezerImageContainer}>
-            <Image source={{ uri: getImageUrl(item.foodId?.image) }} style={styles.freezerImage} />
-        </View>
-        <View style={styles.freezerInfo}>
-            <Text style={styles.freezerName} numberOfLines={1}>{item.foodId?.name || 'Unknown'}</Text>
-            <Text style={styles.freezerQty}>{item.quantity}</Text>
-        </View>
-    </TouchableOpacity>
-);
+export const FreezerItem = ({ item, onClick }) => {
+    const isExpired = dayjs(item.useWithin).isBefore(dayjs());
+    const isNearExpiry = dayjs(item.useWithin).isBefore(dayjs().add(3, 'day'));
+    const statusColor = isExpired ? '#EF4444' : (isNearExpiry ? '#F59E0B' : '#10B981');
+
+    return (
+        <TouchableOpacity
+            style={styles.freezerItem}
+            onPress={() => onClick(item)}
+            activeOpacity={0.9}
+        >
+            <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+            <View style={styles.freezerImageContainer}>
+                <Image source={{ uri: getImageUrl(item.foodId?.image) }} style={styles.freezerImage} />
+            </View>
+            <View style={styles.freezerInfo}>
+                <Text style={styles.freezerName} numberOfLines={1}>{item.foodId?.name || 'Unknown'}</Text>
+                <Text style={[styles.freezerQty, isExpired && styles.textExpired]}>{item.quantity}</Text>
+            </View>
+        </TouchableOpacity>
+    );
+};
 
 export const CoolerItem = ({ item, onClick }) => {
     const isExpired = dayjs(item.useWithin).isBefore(dayjs());
