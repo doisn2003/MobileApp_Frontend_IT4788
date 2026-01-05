@@ -14,7 +14,7 @@ export async function saveFCMToken(token) {
             console.log('✅ FCM Token saved to SecureStore');
         }
     } catch (error) {
-        console.error('❌ Error saving FCM token:', error);
+        console.warn('❌ Error saving FCM token:', error);
     }
 }
 
@@ -26,7 +26,7 @@ export async function getFCMTokenFromStorage() {
         const token = await SecureStore.getItemAsync(FCM_TOKEN_KEY);
         return token;
     } catch (error) {
-        console.error('❌ Error reading FCM token:', error);
+        console.warn('❌ Error reading FCM token:', error);
         return null;
     }
 }
@@ -40,7 +40,7 @@ export async function deleteFCMTokenFromStorage() {
         await SecureStore.deleteItemAsync(FCM_TOKEN_TIMESTAMP_KEY);
         console.log('✅ FCM Token removed from SecureStore');
     } catch (error) {
-        console.error('❌ Error deleting FCM token:', error);
+        console.warn('❌ Error deleting FCM token:', error);
     }
 }
 
@@ -55,7 +55,7 @@ export async function shouldRefreshToken() {
         const daysSinceUpdate = (Date.now() - parseInt(timestamp)) / (1000 * 60 * 60 * 24);
         return daysSinceUpdate > 30;
     } catch (error) {
-        console.error('❌ Error checking token age:', error);
+        console.warn('❌ Error checking token age:', error);
         return true;
     }
 }
