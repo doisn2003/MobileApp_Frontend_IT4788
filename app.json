@@ -13,6 +13,7 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
+      "bundleIdentifier": "com.mobileapp.it4788",
       "supportsTablet": true
     },
     "android": {
@@ -21,6 +22,13 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
+      "googleServicesFile": "./google-services.json",
+      "package": "com.mobileapp.it4788",
+      "permissions": [
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "POST_NOTIFICATIONS"
+      ]
       "softwareKeyboardLayoutMode": "pan"
     },
     "web": {
@@ -28,6 +36,11 @@
     },
     "plugins": [
       "expo-secure-store"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "4293eccf-9bc2-49fd-acc6-db79350e97dc"
+      }
+    }
   }
 }
