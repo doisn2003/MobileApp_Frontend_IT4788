@@ -57,7 +57,7 @@ async function displayLocalNotification(remoteMessage) {
         return notificationId;
 
     } catch (error) {
-        console.error('❌ Error displaying notification:', error);
+        console.warn('❌ Error displaying notification:', error);
         throw error;
     }
 }
@@ -95,7 +95,7 @@ export function handleNotificationOpen(remoteMessage) {
         }
 
     } catch (error) {
-        console.error('❌ Error handling notification open:', error);
+        console.warn('❌ Error handling notification open:', error);
     }
 }
 
@@ -108,7 +108,7 @@ export async function handleForegroundNotification(remoteMessage) {
         console.log('📬 Notification received in foreground:', remoteMessage);
         await displayLocalNotification(remoteMessage);
     } catch (error) {
-        console.error('❌ Error handling foreground notification:', error);
+        console.warn('❌ Error handling foreground notification:', error);
     }
 }
 
@@ -129,6 +129,6 @@ export async function handleBackgroundNotification(remoteMessage) {
         // ✅ Data-only => tự hiện bằng Notifee
         await displayLocalNotification(remoteMessage);
     } catch (error) {
-        console.error('❌ Error handling background notification:', error);
+        console.warn('❌ Error handling background notification:', error);
     }
 }

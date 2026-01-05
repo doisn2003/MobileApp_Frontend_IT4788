@@ -36,7 +36,7 @@ export async function initializeNotifications() {
         // Bước 2: Lấy FCM token
         const fcmToken = await getFCMToken();
         if (!fcmToken) {
-            console.error('❌ Failed to get FCM token');
+            console.warn('❌ Failed to get FCM token');
             return false;
         }
 
@@ -62,7 +62,7 @@ export async function initializeNotifications() {
         return true;
 
     } catch (error) {
-        console.error('❌ Error initializing notifications:', error);
+        console.warn('❌ Error initializing notifications:', error);
         return false;
     }
 }
@@ -140,7 +140,7 @@ export async function cleanupNotifications() {
         console.log('✅ Notifications cleaned up');
         return true;
     } catch (error) {
-        console.error('❌ Error cleaning up notifications:', error);
+        console.warn('❌ Error cleaning up notifications:', error);
         return false;
     }
 }

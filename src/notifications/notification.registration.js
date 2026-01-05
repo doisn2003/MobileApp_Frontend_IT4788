@@ -19,7 +19,7 @@ export async function getFCMToken() {
         }
 
     } catch (error) {
-        console.error('❌ Error getting FCM token:', error);
+        console.warn('❌ Error getting FCM token:', error);
         return null;
     }
 }
@@ -50,7 +50,7 @@ export async function registerFCMTokenWithBackend(fcmToken) {
         return false;
 
     } catch (error) {
-        console.error('❌ Error registering FCM token with backend:', error.response?.data || error.message);
+        console.warn('❌ Error registering FCM token with backend:', error.response?.data || error.message);
         return false;
     }
 }
@@ -65,7 +65,7 @@ export async function deleteFCMTokenFromFirebase() {
         console.log('✅ FCM Token deleted from Firebase');
         return true;
     } catch (error) {
-        console.error('❌ Error deleting FCM token:', error);
+        console.warn('❌ Error deleting FCM token:', error);
         return false;
     }
 }

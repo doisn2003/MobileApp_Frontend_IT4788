@@ -58,7 +58,7 @@ export async function requestNotificationPermissions() {
         return true;
 
     } catch (error) {
-        console.error('❌ Error requesting notification permissions:', error);
+        console.warn('❌ Error requesting notification permissions:', error);
         return false;
     }
 }
@@ -84,7 +84,7 @@ export async function checkNotificationPermissions() {
         return fcmEnabled && notifeeEnabled;
 
     } catch (error) {
-        console.error('❌ Error checking permissions:', error);
+        console.warn('❌ Error checking permissions:', error);
         return false;
     }
 }
@@ -107,7 +107,7 @@ export async function createDefaultChannel() {
             console.log('✅ Android notification channel created:', channelId);
             return channelId;
         } catch (error) {
-            console.error('❌ Error creating channel:', error);
+            console.warn('❌ Error creating channel:', error);
             return 'default';
         }
     }
