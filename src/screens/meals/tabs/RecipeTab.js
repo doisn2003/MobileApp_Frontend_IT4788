@@ -139,7 +139,7 @@ const RecipeTab = () => {
             {loading ? (
                 <View style={styles.centered}><ActivityIndicator /></View>
             ) : (
-                <Refresh style={{ flex: 1 }} onRefresh={fetchData}>
+                <Refresh style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 80 }} onRefresh={fetchData}>
                     <View style={styles.grid}>
                         {filteredRecipes.length === 0 ? (
                             <Text style={{ textAlign: 'center', marginTop: 20 }}>Chưa có công thức nào.</Text>
@@ -181,7 +181,7 @@ const RecipeTab = () => {
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#f5f5f5' },
+    container: { flex: 1, backgroundColor: '#f5f5f5', height: '100%' },
     searchContainer: { padding: 10, backgroundColor: 'white' }, // Matches RecipeSelectionModal
     searchBar: { elevation: 0, backgroundColor: '#F3F4F6', height: 45 },
     grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -5, padding: 10 },

@@ -11,7 +11,7 @@ import { ScrollView, RefreshControl, StyleSheet, View } from 'react-native';
  * - style: (Object) Style for the container/ScrollView.
  * - children: (React Node) The content to be rendered inside the scroll view.
  */
-const Refresh = ({ onRefresh, children, style, ...props }) => {
+const Refresh = ({ onRefresh, children, style, contentContainerStyle, ...props }) => {
     const [refreshing, setRefreshing] = useState(false);
 
     const handleRefresh = useCallback(async () => {
@@ -29,7 +29,8 @@ const Refresh = ({ onRefresh, children, style, ...props }) => {
 
     return (
         <ScrollView
-            contentContainerStyle={[styles.scrollViewContent, style]}
+            style={style}
+            contentContainerStyle={[styles.scrollViewContent, contentContainerStyle]}
             refreshControl={
                 <RefreshControl
                     refreshing={refreshing}
