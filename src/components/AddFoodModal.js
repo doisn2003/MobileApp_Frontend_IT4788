@@ -55,8 +55,8 @@ const AddFoodModal = ({ visible, onClose, onAdd, initialCompartment = 'Cooler' }
     };
 
     const handleAdd = () => {
-        if (!form.foodName || !form.quantity || !form.unitName || !form.useWithin) {
-            Alert.alert('Vui lòng điền đầy đủ thông tin.');
+        if (!form.foodName || !form.quantity || !form.unitName || !form.useWithin || !form.categoryName) {
+            Alert.alert('Thiếu thông tin', 'Vui lòng điền tên, số lượng, đơn vị, danh mục và hạn sử dụng.');
             return;
         }
         onAdd(form);

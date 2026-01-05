@@ -37,7 +37,7 @@ const GroupSettings = ({ onLeaveGroup }) => {
         if (!newMemberId) return;
         try {
             // POST /user/group/add - Body: { username }
-            await client.post('/user/group/add/', 
+            await client.post('/user/group/add/',
                 { username: newMemberId },
                 { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
             );
@@ -50,21 +50,21 @@ const GroupSettings = ({ onLeaveGroup }) => {
         }
     };
 
-    const handleRemoveMember = (username) => {
-        Alert.alert('Xóa thành viên', `Mời ${username} ra khỏi nhóm?`, [
+    const handleRemoveMember = (memberId, memberName) => {
+        Alert.alert('Xóa thành viên', `Mời ${memberName} ra khỏi nhóm?`, [
             { text: 'Hủy', style: 'cancel' },
-            { 
-                text: 'Đồng ý', 
+            {
+                text: 'Đồng ý',
                 onPress: async () => {
                     try {
-                        // DELETE /user/group/ - Body: { username }
-                        await client.delete('/user/group/', { 
-                            data: { username },
-                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-                        });
+                        // FIX: Gọi đúng API xóa thành viên (POST /remove) thay vì DELETE / (Xóa nhóm)
+                        await client.post('/user/group/remove',
+                            { memberId: memberId },
+                            { headers: { 'Content-Type': 'application/json' } }
+                        );
                         fetchMembers();
                     } catch (e) {
-                        Alert.alert('Lỗi', e.response?.data?.message || 'Bạn không phải trưởng nhóm');
+                        Alert.alert('Lỗi', e.response?.data?.message || 'Không thể xóa thành viên');
                     }
                 }
             }
@@ -73,18 +73,18 @@ const GroupSettings = ({ onLeaveGroup }) => {
 
     const renderMember = ({ item }) => (
         <View style={styles.memberRow}>
-            <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
                 {item.image ? (
                     <Avatar.Image size={40} source={{ uri: item.image }} />
                 ) : (
-                    <Avatar.Text size={40} label={(item.name || item.username || 'U').substring(0,2).toUpperCase()} />
+                    <Avatar.Text size={40} label={(item.name || item.username || 'U').substring(0, 2).toUpperCase()} />
                 )}
-                <View style={{marginLeft: 12}}>
+                <View style={{ marginLeft: 12 }}>
                     <Text style={styles.memberName}>{item.name || item.username}</Text>
                     <Text style={styles.memberEmail}>{item.email}</Text>
                 </View>
             </View>
-            <IconButton icon="close" iconColor="#EF4444" size={20} onPress={() => handleRemoveMember(item.username)} />
+            <IconButton icon="close" iconColor="#EF4444" size={20} onPress={() => handleRemoveMember(item._id || item.id, item.name || item.username)} />
         </View>
     );
 
@@ -104,13 +104,13 @@ const GroupSettings = ({ onLeaveGroup }) => {
                         </View>
 
                         {loading ? (
-                            <ActivityIndicator style={{margin: 20}} color="#7C3AED" />
+                            <ActivityIndicator style={{ margin: 20 }} color="#7C3AED" />
                         ) : (
-                            <FlatList 
+                            <FlatList
                                 data={members}
                                 renderItem={renderMember}
                                 keyExtractor={item => item.username || Math.random().toString()}
-                                contentContainerStyle={{padding: 16}}
+                                contentContainerStyle={{ padding: 16 }}
                                 ListEmptyComponent={<Text style={styles.emptyText}>Nhóm chưa có thành viên.</Text>}
                             />
                         )}
@@ -118,12 +118,12 @@ const GroupSettings = ({ onLeaveGroup }) => {
                         <View style={styles.footer}>
                             {adding ? (
                                 <View style={styles.addSection}>
-                                    <TextInput 
-                                        mode="outlined" 
-                                        placeholder="Nhập username..." 
+                                    <TextInput
+                                        mode="outlined"
+                                        placeholder="Nhập username..."
                                         value={newMemberId}
                                         onChangeText={setNewMemberId}
-                                        style={{flex: 1, backgroundColor: 'white', height: 40}}
+                                        style={{ flex: 1, backgroundColor: 'white', height: 40 }}
                                         dense
                                     />
                                     <IconButton icon="check" mode="contained" containerColor="#7C3AED" iconColor="white" size={20} onPress={handleAddMember} />

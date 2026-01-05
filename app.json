@@ -29,6 +29,7 @@
         "VIBRATE",
         "POST_NOTIFICATIONS"
       ]
+      "softwareKeyboardLayoutMode": "pan"
     },
     "web": {
       "favicon": "./assets/favicon.png"
