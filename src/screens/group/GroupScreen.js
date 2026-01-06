@@ -7,9 +7,7 @@ import GroupSettings from '../../components/GroupSettings';
 import io from 'socket.io-client';
 import * as SecureStore from 'expo-secure-store';
 import dayjs from 'dayjs';
-
-// TODO: Nên đưa vào biến môi trường hoặc config chung
-const SOCKET_URL = 'http://192.168.0.103:3000';
+import { SOCKET_URL } from '../../../constants';
 
 const GroupScreen = () => {
     const [messages, setMessages] = useState([]);
