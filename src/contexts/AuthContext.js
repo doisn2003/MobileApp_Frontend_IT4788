@@ -1,8 +1,7 @@
 import React, { createContext, useState, useEffect } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import client from '../api/client';
-// Giả định bạn đã có file notifications.js, nếu chưa thì comment dòng này lại
-import { initializeNotifications, cleanupNotifications } from '../notifications'; 
+import { initializeNotifications, cleanupNotifications } from '../services/notifications'; // Mở comment nếu đã cài đặt push notification
 
 export const AuthContext = createContext();
 
@@ -23,7 +22,7 @@ export const AuthProvider = ({ children }) => {
             await SecureStore.setItemAsync('userInfo', JSON.stringify(user));
 
             console.log('🔐 Login successful, initializing notifications...');
-            // await initializeNotifications(); // Mở comment nếu đã cài đặt push notification
+            await initializeNotifications(); // Mở comment nếu đã cài đặt push notification
         } catch (e) {
             console.log(`Login error: ${e}`);
             throw e;
@@ -48,7 +47,7 @@ export const AuthProvider = ({ children }) => {
         setIsLoading(true);
         try {
             console.log('🔐 Logging out...');
-            // await cleanupNotifications(); // Mở comment nếu đã cài đặt
+            await cleanupNotifications(); // Mở comment nếu đã cài đặt
         } catch (e) {
             console.error(e);
         }
@@ -75,7 +74,7 @@ export const AuthProvider = ({ children }) => {
             if (userToken) {
                 setUserToken(userToken);
                 setUserInfo(JSON.parse(userInfo));
-                // await initializeNotifications(); // Mở comment nếu cần
+                await initializeNotifications(); // Mở comment nếu cần
             }
         } catch (e) {
             console.log(`isLoggedIn error: ${e}`);

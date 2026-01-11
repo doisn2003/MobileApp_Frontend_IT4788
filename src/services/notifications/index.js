@@ -1,21 +1,25 @@
 import notifee, { EventType } from '@notifee/react-native';
 import messaging from '@react-native-firebase/messaging';
-import { requestNotificationPermissions, checkNotificationPermissions } from './notification.permissions';
 import { 
-    getFCMToken, 
-    registerFCMTokenWithBackend, 
+    requestNotificationPermissions,
+    checkNotificationPermissions
+} from './notification.permissions';
+import { 
+    getFCMToken,
+    registerFCMTokenWithBackend,
     deleteFCMTokenFromFirebase,
-    registerTokenRefreshListener 
+    registerTokenRefreshListener
 } from './notification.registration';
 import { 
-    saveFCMToken, 
-    getFCMTokenFromStorage, 
+    saveFCMToken,
+    getFCMTokenFromStorage,
     deleteFCMTokenFromStorage,
     shouldRefreshToken
 } from './notification.storage';
 import { 
-    handleNotificationOpen, 
-    handleForegroundNotification 
+    handleNotificationOpen,
+    handleForegroundNotification, 
+    handleBackgroundNotification
 } from './notification.handlers';
 
 /**
@@ -146,4 +150,4 @@ export async function cleanupNotifications() {
 }
 
 // Export các hàm riêng lẻ
-export { getFCMToken, saveFCMToken, checkNotificationPermissions };
+export { getFCMToken, saveFCMToken, checkNotificationPermissions, handleBackgroundNotification };

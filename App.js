@@ -4,7 +4,7 @@ import { Provider as PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context'; // <--- IMPORT MỚI
 import { AuthProvider } from './src/contexts/AuthContext';
 import AppNavigator from './src/navigation/AppNavigator';
-import { registerNotificationListeners } from './src/notifications';
+import { registerNotificationListeners } from './src/services/notifications';
 
 export default function App() {
   useEffect(() => {
