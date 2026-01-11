@@ -3,8 +3,9 @@ import { View, StyleSheet, FlatList, Alert, TouchableOpacity } from 'react-nativ
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, IconButton } from 'react-native-paper';
 import { useIsFocused } from '@react-navigation/native';
-import client from '../../api/client';
+import client from '../../api/client.offline';
 import { AuthContext } from '../../contexts/AuthContext';
+import { useNetwork } from '../../contexts/NetworkContext';
 
 import { FreezerItem, CoolerItem } from '../../components/FoodItem';
 import FoodModal from '../../components/FoodModal';
@@ -27,6 +28,9 @@ const FridgeScreen = () => {
     const isFocused = useIsFocused();
     const { logout } = useContext(AuthContext);
 
+    // Network State
+    const { checkPendingActions } = useNetwork();
+
     const fetchFridgeItems = async () => {
         setLoading(true);
         try {
@@ -37,6 +41,10 @@ const FridgeScreen = () => {
                 setItems(response.data);
             } else {
                 setItems([]);
+            }
+
+            if (response.fromCache) {
+                console.log('📦 Dữ liệu từ cache');
             }
         } catch (e) {
             console.log('Fetch Error:', e);
@@ -131,13 +139,20 @@ const FridgeScreen = () => {
                 note: formData.note
             };
 
-            await client.post('/fridge/', payload, {
+            const response = await client.post('/fridge/', payload, {
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             });
 
             handleCloseAdd();
             fetchFridgeItems();
-            Alert.alert('Thành công!', 'Đã thêm thực phẩm vào tủ lạnh!');
+            
+            // Thông báo khác nhau cho online/offline
+            if (response.offline) {
+                Alert.alert('Đã lưu!', 'Sẽ đồng bộ khi có mạng.');
+            } else {
+                Alert.alert('Thành công!', 'Đã thêm thực phẩm vào tủ lạnh!');
+            }            
+            checkPendingActions(); // Cập nhật pending count
         } catch (e) {
             console.log(e.response?.data);
             const errorCode = e.response?.data?.code;
