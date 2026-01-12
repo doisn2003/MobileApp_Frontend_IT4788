@@ -18,8 +18,7 @@ const OfflineBanner = () => {
         return (
             <View style={[styles.banner, styles.offlineBanner, { paddingTop: insets.top + 8 }]}>
                 <Text style={styles.bannerText}>
-                    📡 Không có kết nối mạng - Đang dùng dữ liệu offline
-                    {pendingCount > 0 && ` (${pendingCount} thay đổi chờ đồng bộ)`}
+                    📡 Không có kết nối mạng - Đang hoạt động offline
                 </Text>
             </View>
         );

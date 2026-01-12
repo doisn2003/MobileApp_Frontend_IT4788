@@ -2,7 +2,10 @@ import React, { createContext, useState, useEffect, useContext, useCallback, use
 import NetInfo from '@react-native-community/netinfo';
 import { getPendingActions, markActionSynced, clearCache, clearSyncedActions } from '../services/offline';
 import onlineClient from '../api/client.online';
-import { navigationRef } from '../navigation/NavigationRef';
+
+// Cấu hình retry
+const MAX_RETRY_ATTEMPTS = 2;
+const RETRY_DELAY_MS = 2000; // 2 giây giữa các lần retry
 
 export const NetworkContext = createContext();
 
@@ -51,14 +54,65 @@ export const NetworkProvider = ({ children }) => {
         // }
     }, []);
 
+    // Hàm delay
+    const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    // Hàm thực hiện sync một action với retry
+    const syncActionWithRetry = async (action, attemptNumber = 1) => {
+        const { id, method, endpoint, payload } = action;
+        const parsedPayload = payload ? JSON.parse(payload) : {};
+
+        try {
+            console.log(`🔄 [Attempt ${attemptNumber}/${MAX_RETRY_ATTEMPTS + 1}] Syncing ${method} ${endpoint}`);
+            
+            switch (method) {
+                case 'POST':
+                    await onlineClient.post(endpoint, parsedPayload);
+                    break;
+                case 'PUT':
+                    await onlineClient.put(endpoint, parsedPayload);
+                    break;
+                case 'DELETE':
+                    await onlineClient.delete(endpoint, { data: parsedPayload });
+                    break;
+                case 'PATCH':
+                    await onlineClient.patch(endpoint, parsedPayload);
+                    break;
+                default:
+                    throw new Error(`Unknown method: ${method}`);
+            }
+
+            await markActionSynced(id);
+            console.log(`✅ Synced: ${method} ${endpoint}`);
+            return { success: true, action };
+            
+        } catch (error) {
+            console.log(`❌ [Attempt ${attemptNumber}] Failed: ${method} ${endpoint}`, error.message);
+            
+            // Nếu còn lần retry
+            if (attemptNumber <= MAX_RETRY_ATTEMPTS) {
+                console.log(`⏳ Waiting ${RETRY_DELAY_MS}ms before retry...`);
+                await delay(RETRY_DELAY_MS);
+                return await syncActionWithRetry(action, attemptNumber + 1);
+            }
+            
+            // Hết lần retry
+            return { 
+                success: false, 
+                action, 
+                error: error.response?.data?.message || error.message 
+            };
+        }
+    };
+
     // Hàm sync tất cả pending actions
     const syncPendingActions = useCallback(async () => {
-        if (isSyncing) return { success: false, message: 'Đang đồng bộ...' };
+        if (isSyncing) return;
         
         const actions = await getPendingActions();
         if (actions.length === 0) {
-            setWasOffline(false);
-            return { success: true, synced: 0, message: 'Không có gì để đồng bộ' };
+            console.log('📭 No pending actions to sync');
+            return;
         }
         
         setIsSyncing(true);
@@ -67,66 +121,69 @@ export const NetworkProvider = ({ children }) => {
         let successCount = 0;
         let failedActions = [];
 
+        console.log(`🚀 Starting sync of ${actions.length} actions...`);
+
         for (const action of actions) {
-            try {
-                const payload = action.payload ? JSON.parse(action.payload) : null;
-                
-                switch (action.method) {
-                    case 'POST':
-                        await onlineClient.post(action.endpoint, payload);
-                        break;
-                    case 'PUT':
-                        await onlineClient.put(action.endpoint, payload);
-                        break;
-                    case 'DELETE':
-                        await onlineClient.delete(action.endpoint, { data: payload });
-                        break;
-                    case 'PATCH':
-                        await onlineClient.patch(action.endpoint, payload);
-                        break;
-                }
-                
-                await markActionSynced(action.id);
+            const result = await syncActionWithRetry(action);
+            
+            if (result.success) {
                 successCount++;
-            } catch (error) {
-                console.error(`Sync failed for action ${action.id}:`, error);
-                failedActions.push(action);
+            } else {
+                failedActions.push({
+                    ...result.action,
+                    errorMessage: result.error
+                });
             }
         }
 
+        // Xóa các actions đã sync thành công
         await clearSyncedActions();
-        await clearCache(); // Xóa cache cũ để force lấy data mới
+
+        // Xử lý kết quả
+        if (failedActions.length === 0) {
+            // Tất cả thành công
+            console.log(`✅ All ${successCount} actions synced successfully`);
+            setSyncResult({
+                success: true,
+                message: `Đồng bộ thành công ${successCount} thay đổi`
+            });
+            
+            // Xóa cache cũ để force lấy data mới
+            await clearCache();
+            
+            // Trigger refresh để các screen re-fetch
+            triggerRefresh();
+        } else {
+            // Có actions thất bại
+            console.log(`⚠️ Sync completed: ${successCount} success, ${failedActions.length} failed`);
+            
+            // Log chi tiết các actions thất bại
+            failedActions.forEach((action, index) => {
+                console.log(`   ${index + 1}. ${action.method} ${action.endpoint}: ${action.errorMessage}`);
+            });
+            
+            // Thông báo lỗi
+            setSyncResult({
+                success: false,
+                message: `Đồng bộ thất bại ${failedActions.length} thay đổi sau ${MAX_RETRY_ATTEMPTS + 1} lần thử. Dữ liệu offline đã bị xóa.`,
+                failedCount: failedActions.length,
+                successCount: successCount
+            });
+            
+            // Xóa toàn bộ cache và pending actions vì đã thất bại
+            console.log('🗑️ Clearing all cache and failed actions...');
+            await clearCache();
+            await clearActions(); // Xóa luôn các actions thất bại
+        }
+
+        setIsSyncing(false);
         await checkPendingActions();
         
-        const result = {
-            success: failedActions.length === 0,
-            synced: successCount,
-            failed: failedActions.length,
-            message: failedActions.length === 0 
-                ? `Đồng bộ thành công ${successCount} thay đổi!`
-                : `Đồng bộ ${successCount}/${actions.length}. ${failedActions.length} lỗi.`
-        };
+        // Tự động ẩn syncResult sau 5 giây
+        setTimeout(() => {
+            setSyncResult(null);
+        }, 5000);
         
-        setSyncResult(result);
-        setIsSyncing(false);
-
-        // Trigger refresh sau khi sync thành công
-        if (result.success || successCount > 0) {
-            // Delay một chút để UI cập nhật trước
-            setTimeout(() => {
-                triggerRefresh();
-            }, 500);
-        }
-        
-        // Nếu thành công hoàn toàn, ẩn banner sau 3 giây
-        if (result.success) {
-            setTimeout(() => {
-                setWasOffline(false);
-                setSyncResult(null);
-            }, 3000);
-        }
-
-        return result;
     }, [isSyncing, triggerRefresh]);
 
     const checkPendingActions = async () => {
@@ -143,16 +200,16 @@ export const NetworkProvider = ({ children }) => {
 
     useEffect(() => {
         const unsubscribe = NetInfo.addEventListener(state => {
-            const connected = state.isConnected && state.isInternetReachable;
-            
+            const connected = state.isConnected && state.isInternetReachable;        
             const wasDisconnected = !prevConnectedRef.current;
-            const isNowConnected = connected;
             
-            if (wasDisconnected && isNowConnected) {
+            // Detect: vừa offline -> online
+            if (wasDisconnected && connected) {
                 console.log('🌐 Network restored - Auto syncing...');
                 syncPendingActions();
             }
             
+            // Detect: online -> offline
             if (!connected && prevConnectedRef.current) {
                 setWasOffline(true);
                 setSyncResult(null);
