@@ -2,6 +2,7 @@ import React, { createContext, useState, useEffect } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import client from '../api/client';
 import { initializeNotifications, cleanupNotifications } from '../services/notifications'; // Mở comment nếu đã cài đặt push notification
+import { clearCache, clearActions } from '../services/offline'; // Thêm import
 
 export const AuthContext = createContext();
 
@@ -23,6 +24,11 @@ export const AuthProvider = ({ children }) => {
 
             console.log('🔐 Login successful, initializing notifications...');
             await initializeNotifications(); // Mở comment nếu đã cài đặt push notification
+            
+            // Xóa cache cũ khi đăng nhập tài khoản mới
+            console.log('🗑️ Clearing old offline cache...');
+            await clearCache();
+            await clearActions();
         } catch (e) {
             console.log(`Login error: ${e}`);
             throw e;
@@ -48,6 +54,11 @@ export const AuthProvider = ({ children }) => {
         try {
             console.log('🔐 Logging out...');
             await cleanupNotifications(); // Mở comment nếu đã cài đặt
+            
+            // Xóa toàn bộ cache và queue khi đăng xuất
+            console.log('🗑️ Clearing all offline data...');
+            await clearCache();
+            await clearActions();
         } catch (e) {
             console.error(e);
         }

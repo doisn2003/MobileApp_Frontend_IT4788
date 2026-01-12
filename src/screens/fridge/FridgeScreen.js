@@ -3,9 +3,10 @@ import { View, StyleSheet, FlatList, Alert, TouchableOpacity } from 'react-nativ
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, IconButton } from 'react-native-paper';
 import { useIsFocused } from '@react-navigation/native';
-import client from '../../api/client.offline';
+import client from '../../api/client';
 import { AuthContext } from '../../contexts/AuthContext';
 import { useNetwork } from '../../contexts/NetworkContext';
+import { useRefreshOnSync } from '../../hooks/useRefreshOnSync';
 
 import { FreezerItem, CoolerItem } from '../../components/FoodItem';
 import FoodModal from '../../components/FoodModal';
@@ -57,6 +58,7 @@ const FridgeScreen = () => {
         }
     };
 
+    useRefreshOnSync(fetchFridgeItems);
     useEffect(() => {
         if (isFocused) {
             fetchFridgeItems();

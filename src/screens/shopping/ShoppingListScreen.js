@@ -3,6 +3,8 @@ import { View, StyleSheet, FlatList, Alert, RefreshControl, TouchableOpacity } f
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, FAB, Card, IconButton, Avatar, Chip, ActivityIndicator } from 'react-native-paper';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
+import { useRefreshOnSync } from '../../hooks/useRefreshOnSync';
+
 import dayjs from 'dayjs';
 import client from '../../api/client';
 import { CreateListModal } from '../../components/ShoppingModals';
@@ -37,6 +39,7 @@ const ShoppingListScreen = () => {
         }
     }, []);
 
+    useRefreshOnSync(fetchLists);
     useEffect(() => {
         if (isFocused) {
             fetchLists();

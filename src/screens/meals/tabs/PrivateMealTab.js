@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, use } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { Text, IconButton, ActivityIndicator, Chip } from 'react-native-paper';
+import { useRefreshOnSync } from '../../../hooks/useRefreshOnSync';
+
 import client from '../../../api/client';
 import { useIsFocused } from '@react-navigation/native';
 import dayjs from 'dayjs';
@@ -52,7 +54,12 @@ const PrivateMealTab = () => {
             console.log('Error fetching dates', e);
         }
     };
+    
+    const fetchAllData = async () => {
+        await Promise.all([fetchMeals(), fetchMealDates()]);
+    }
 
+    useRefreshOnSync(fetchAllData);
     useEffect(() => {
         if (isFocused) {
             fetchMeals();

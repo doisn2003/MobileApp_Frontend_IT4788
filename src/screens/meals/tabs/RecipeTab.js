@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
 import { FAB, Text, Searchbar } from 'react-native-paper';
+import { useRefreshOnSync } from '../../../hooks/useRefreshOnSync';
+
 import client from '../../../api/client';
 import { useIsFocused } from '@react-navigation/native';
 import Refresh from '../../../components/Refresh';
@@ -41,6 +43,7 @@ const RecipeTab = () => {
         }
     };
 
+    useRefreshOnSync(fetchData);
     useEffect(() => {
         if (isFocused) fetchData();
     }, [isFocused]);

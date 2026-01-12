@@ -53,9 +53,41 @@ export async function getCache(endpoint) {
     return null;
 }
 
+// Lấy tất cả cache có prefix (dùng cho update/delete nhiều cache)
+export async function getAllCachesWithPrefix(prefix) {
+    try {
+        const results = await db.getAllAsync(
+            `SELECT endpoint, data FROM api_cache WHERE endpoint LIKE ?`,
+            [`${prefix}%`]
+        );
+        
+        return results.map(row => ({
+            key: row.endpoint,
+            data: JSON.parse(row.data)
+        }));
+    } catch (error) {
+        console.error('Error getting caches with prefix:', error);
+        return [];
+    }
+}
+
+// Xóa cache theo key
+export async function deleteCache(endpoint) {
+    try {
+        await db.runAsync(
+            `DELETE FROM api_cache WHERE endpoint = ?`,
+            [endpoint]
+        );
+        console.log(`🗑️ Deleted cache: ${endpoint}`);
+    } catch (error) {
+        console.error('Error deleting cache:', error);
+    }
+}
+
 // Xoá toàn bộ cache
 export async function clearCache() {
-    await db.runAsync(`TRUNCATE TABLE api_cache`);
+    await db.runAsync(`DELETE FROM api_cache`);
+    console.log('✅ All cache cleared');
 }
 
 // Thêm action vào queue
@@ -88,7 +120,8 @@ export async function clearSyncedActions() {
 
 // Xoá tất cả actions
 export async function clearActions() {
-    await db.runAsync(`TRUNCATE TABLE action_queue`)
+    await db.runAsync(`DELETE FROM action_queue`);
+    console.log('✅ All actions cleared');
 }
 
 // Cập nhật cache cục bộ (cho optimistic updates)
