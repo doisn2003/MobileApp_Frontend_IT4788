@@ -22,10 +22,22 @@ export async function initDatabase() {
             created_at INTEGER NOT NULL,
             status TEXT DEFAULT 'pending'
         );
+
+        -- Bảng lưu tin nhắn chat pending
+        CREATE TABLE IF NOT EXISTS pending_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            temp_id TEXT UNIQUE NOT NULL,
+            group_id TEXT NOT NULL,
+            sender_id TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created_at INTEGER NOT NULL,
+            status TEXT DEFAULT 'pending'
+        );
     `);
     console.log('✅ Offline database initialized');
 }
 
+// ==================== CACHING ====================
 // Lưu cache cho GET request
 export async function saveCache(endpoint, data) {
     const jsonData = JSON.stringify(data);
@@ -84,6 +96,7 @@ export async function deleteCache(endpoint) {
     }
 }
 
+// ==================== ACTION QUEUE ====================
 // Xoá toàn bộ cache
 export async function clearCache() {
     await db.runAsync(`DELETE FROM api_cache`);
@@ -133,6 +146,48 @@ export async function updateLocalCache(endpoint, updateFn) {
         return updatedData;
     }
     return null;
+}
+
+// ==================== PENDING MESSAGES ====================
+// Thêm tin nhắn vào queue
+export async function addPendingMessage(tempId, groupId, senderId, content) {
+    await db.runAsync(
+        `INSERT INTO pending_messages (temp_id, group_id, sender_id, content, created_at) VALUES (?, ?, ?, ?, ?)`,
+        [tempId, groupId, senderId, content, Date.now()]
+    );
+    console.log(`📝 Queued message: ${tempId}`);
+}
+
+// Lấy tất cả tin nhắn pending
+export async function getPendingMessages(groupId = null) {
+    if (groupId) {
+        return await db.getAllAsync(
+            `SELECT * FROM pending_messages WHERE status = 'pending' AND group_id = ? ORDER BY created_at ASC`,
+            [groupId]
+        );
+    }
+    return await db.getAllAsync(
+        `SELECT * FROM pending_messages WHERE status = 'pending' ORDER BY created_at ASC`
+    );
+}
+
+// Đánh dấu tin nhắn đã gửi
+export async function markMessageSent(tempId) {
+    await db.runAsync(
+        `UPDATE pending_messages SET status = 'sent' WHERE temp_id = ?`,
+        [tempId]
+    );
+}
+
+// Xóa tin nhắn đã gửi
+export async function clearSentMessages() {
+    await db.runAsync(`DELETE FROM pending_messages WHERE status = 'sent'`);
+}
+
+// Xóa tất cả tin nhắn pending
+export async function clearPendingMessages() {
+    await db.runAsync(`DELETE FROM pending_messages`);
+    console.log('✅ All pending messages cleared');
 }
 
 export default db;
