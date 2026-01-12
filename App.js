@@ -4,6 +4,8 @@ import { Provider as PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context'; // <--- IMPORT MỚI
 import { AuthProvider } from './src/contexts/AuthContext';
 import { NetworkProvider } from './src/contexts/NetworkContext';
+import { MessageProvider } from './src/contexts/MessageContext';
+
 import AppNavigator from './src/navigation/AppNavigator';
 import { registerNotificationListeners } from './src/services/notifications';
 import { initDatabase } from './src/services/offline'; // THÊM MỚI
@@ -25,7 +27,9 @@ export default function App() {
       <PaperProvider>
         <NetworkProvider>
           <AuthProvider>
-            <AppNavigator />
+            <MessageProvider>
+              <AppNavigator />
+            </MessageProvider>
           </AuthProvider>
         </NetworkProvider>
       </PaperProvider>

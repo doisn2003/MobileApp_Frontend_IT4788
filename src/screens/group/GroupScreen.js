@@ -2,12 +2,15 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, StyleSheet, FlatList, KeyboardAvoidingView, Platform, TextInput as NativeInput, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, Avatar, IconButton, Surface, ActivityIndicator } from 'react-native-paper';
+
 import client from '../../api/client';
 import GroupSettings from '../../components/GroupSettings';
 import * as SecureStore from 'expo-secure-store';
 import dayjs from 'dayjs';
+import { useFocusEffect } from '@react-navigation/native';
 import { useOfflineSocket } from '../../hooks/useOfflineSocket';
 import { useNetwork } from '../../contexts/NetworkContext';
+import { useMessage } from '../../contexts/MessageContext';
 import { getPendingMessages } from '../../services/offline';
 
 const GroupScreen = () => {
@@ -20,6 +23,7 @@ const GroupScreen = () => {
 
     const flatListRef = useRef(null);
     const { isConnected } = useNetwork();
+    const { setGroupScreenActive, initGlobalSocket, markAsRead } = useMessage();
 
     // Callback khi nhận tin nhắn mới
     const handleNewMessage = useCallback((msg) => {
@@ -77,9 +81,23 @@ const GroupScreen = () => {
         handleNewMessage
     );
 
+    // Quản lý trạng thái active của Group Screen
+    useFocusEffect(
+        useCallback(() => {
+            setGroupScreenActive(true);
+            markAsRead();
+
+            return () => {
+                setGroupScreenActive(false);
+            };
+        }, [])
+    );
+
+    // Khởi tạo màn hình
     useEffect(() => {
         const initScreen = async () => {
             await checkGroupStatus();
+            await initGlobalSocket();
         };
         initScreen();
     }, []);
