@@ -207,7 +207,7 @@ const GroupScreen = () => {
                             <Text style={[styles.timeText, isMe ? { color: '#E9D5FF' } : { color: 'gray' }]}>
                                 {time}
                             </Text>
-                            {isLiked && <Text style={styles.heartIcon}>❤️</Text>}
+                            
                         </View>
                     </View>
                     {/* Heart badge bên ngoài bubble */}

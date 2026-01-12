@@ -10,12 +10,12 @@ import { FreezerItem, CoolerItem } from '../../components/FoodItem';
 import FoodModal from '../../components/FoodModal';
 import AddFoodModal from '../../components/AddFoodModal';
 import Refresh from '../../components/Refresh';
-import Search from '../../components/Search'; // <--- IMPORT MỚI
+import Search from '../../components/Search'; 
 
 const FridgeScreen = () => {
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [searchQuery, setSearchQuery] = useState(''); // <--- STATE TÌM KIẾM
+    const [searchQuery, setSearchQuery] = useState(''); 
 
     // Selection State
     const [selectedItem, setSelectedItem] = useState(null);
