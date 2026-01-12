@@ -1,6 +1,6 @@
 import messaging from '@react-native-firebase/messaging';
 import notifee, { AndroidImportance } from '@notifee/react-native';
-import { navigate } from '../navigation/NavigationRef';
+import { navigate } from '../../navigation/NavigationRef';
 import { Platform } from 'react-native';
 
 // Helper: hiển thị local notification bằng Notifee

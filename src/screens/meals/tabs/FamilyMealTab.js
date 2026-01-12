@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, StyleSheet, Alert, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { Text, IconButton, ActivityIndicator } from 'react-native-paper';
+import { useRefreshOnSync } from '../../../hooks/useRefreshOnSync';
+
 import client from '../../../api/client';
 import { useIsFocused } from '@react-navigation/native';
 import dayjs from 'dayjs';
@@ -49,6 +51,11 @@ const FamilyMealTab = () => {
         }
     };
 
+    const fetchAllData = async () => {
+        await Promise.all([fetchMeals(), fetchMealDates()]);
+    }
+
+    useRefreshOnSync(fetchAllData);
     useEffect(() => {
         if (isFocused) {
             fetchMeals();

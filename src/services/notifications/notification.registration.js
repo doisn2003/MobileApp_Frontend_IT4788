@@ -1,5 +1,5 @@
 import messaging from '@react-native-firebase/messaging';
-import client from '../api/client';
+import client from '../../api/client';
 
 /**
  * Lấy FCM Token từ Firebase

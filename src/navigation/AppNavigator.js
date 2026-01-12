@@ -99,6 +99,9 @@ import ProfileScreen from '../screens/profile/ProfileScreen';
 // Navigators
 import ShoppingNavigator from './ShoppingNavigator'; // Import Stack Navigator cho Mua sắm
 
+// Offline Banner
+import OfflineBanner from '../components/OfflineBanner';
+
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -110,29 +113,32 @@ const AuthStack = () => (
 );
 
 const MainTabs = () => (
-    <Tab.Navigator
-        screenOptions={({ route }) => ({
-            headerShown: false, // Ẩn header mặc định của Tab để dùng Header riêng của từng màn hình
-            tabBarIcon: ({ color, size }) => {
-                let iconName;
-                if (route.name === 'Tủ Lạnh') iconName = 'fridge';
-                else if (route.name === 'Mua Sắm') iconName = 'cart';
-                else if (route.name === 'Bữa Ăn') iconName = 'calendar-clock';
-                else if (route.name === 'Nhóm') iconName = 'account-group';
-                else if (route.name === 'Profile') iconName = 'account';
-                return <MaterialCommunityIcons name={iconName} size={size} color={color} />;
-            },
-            tabBarActiveTintColor: '#7C3AED',
-            tabBarInactiveTintColor: 'gray',
-        })}
-    >
-        <Tab.Screen name="Tủ Lạnh" component={FridgeScreen} />
-        {/* QUAN TRỌNG: Sử dụng ShoppingNavigator thay vì màn hình đơn lẻ */}
-        <Tab.Screen name="Mua Sắm" component={ShoppingNavigator} />
-        <Tab.Screen name="Bữa Ăn" component={MealPlanScreen} />
-        <Tab.Screen name="Nhóm" component={GroupScreen} />
-        <Tab.Screen name="Profile" component={ProfileScreen} />
-    </Tab.Navigator>
+    <View style={{ flex: 1}}>
+        <OfflineBanner />
+        <Tab.Navigator
+            screenOptions={({ route }) => ({
+                headerShown: false, // Ẩn header mặc định của Tab để dùng Header riêng của từng màn hình
+                tabBarIcon: ({ color, size }) => {
+                    let iconName;
+                    if (route.name === 'Tủ Lạnh') iconName = 'fridge';
+                    else if (route.name === 'Mua Sắm') iconName = 'cart';
+                    else if (route.name === 'Bữa Ăn') iconName = 'calendar-clock';
+                    else if (route.name === 'Nhóm') iconName = 'account-group';
+                    else if (route.name === 'Profile') iconName = 'account';
+                    return <MaterialCommunityIcons name={iconName} size={size} color={color} />;
+                },
+                tabBarActiveTintColor: '#7C3AED',
+                tabBarInactiveTintColor: 'gray',
+            })}
+        >
+            <Tab.Screen name="Tủ Lạnh" component={FridgeScreen} />
+            {/* QUAN TRỌNG: Sử dụng ShoppingNavigator thay vì màn hình đơn lẻ */}
+            <Tab.Screen name="Mua Sắm" component={ShoppingNavigator} />
+            <Tab.Screen name="Bữa Ăn" component={MealPlanScreen} />
+            <Tab.Screen name="Nhóm" component={GroupScreen} />
+            <Tab.Screen name="Profile" component={ProfileScreen} />
+        </Tab.Navigator>
+    </View>
 );
 
 const AppNavigator = () => {

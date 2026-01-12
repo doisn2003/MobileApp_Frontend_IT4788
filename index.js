@@ -1,7 +1,7 @@
 import { registerRootComponent } from 'expo';
 import messaging from '@react-native-firebase/messaging';
 import notifee, { AndroidImportance } from '@notifee/react-native';
-import { handleBackgroundNotification } from './src/notifications/notification.handlers';
+import { handleBackgroundNotification } from './src/services/notifications';
 import App from './App';
 import { Platform } from 'react-native';
 

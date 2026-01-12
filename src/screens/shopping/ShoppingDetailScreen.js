@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, FlatList, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, IconButton, Appbar, FAB, Checkbox } from 'react-native-paper';
+import { useRefreshOnSync } from '../../hooks/useRefreshOnSync';
+
 import client from '../../api/client';
 import { AddTaskModal } from '../../components/ShoppingModals';
 
@@ -34,6 +36,7 @@ const ShoppingDetailScreen = ({ route, navigation }) => {
         }
     }, [list]);
 
+    useRefreshOnSync(fetchTasks);
     useEffect(() => {
         fetchTasks();
     }, [fetchTasks]);

@@ -1,8 +1,8 @@
 import React, { createContext, useState, useEffect } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import client from '../api/client';
-// Giả định bạn đã có file notifications.js, nếu chưa thì comment dòng này lại
-import { initializeNotifications, cleanupNotifications } from '../notifications'; 
+import { initializeNotifications, cleanupNotifications } from '../services/notifications'; // Mở comment nếu đã cài đặt push notification
+import { clearCache, clearActions } from '../services/offline'; // Thêm import
 
 export const AuthContext = createContext();
 
@@ -23,7 +23,12 @@ export const AuthProvider = ({ children }) => {
             await SecureStore.setItemAsync('userInfo', JSON.stringify(user));
 
             console.log('🔐 Login successful, initializing notifications...');
-            // await initializeNotifications(); // Mở comment nếu đã cài đặt push notification
+            await initializeNotifications(); // Mở comment nếu đã cài đặt push notification
+            
+            // Xóa cache cũ khi đăng nhập tài khoản mới
+            console.log('🗑️ Clearing old offline cache...');
+            await clearCache();
+            await clearActions();
         } catch (e) {
             console.log(`Login error: ${e}`);
             throw e;
@@ -48,7 +53,12 @@ export const AuthProvider = ({ children }) => {
         setIsLoading(true);
         try {
             console.log('🔐 Logging out...');
-            // await cleanupNotifications(); // Mở comment nếu đã cài đặt
+            await cleanupNotifications(); // Mở comment nếu đã cài đặt
+            
+            // Xóa toàn bộ cache và queue khi đăng xuất
+            console.log('🗑️ Clearing all offline data...');
+            await clearCache();
+            await clearActions();
         } catch (e) {
             console.error(e);
         }
@@ -75,7 +85,7 @@ export const AuthProvider = ({ children }) => {
             if (userToken) {
                 setUserToken(userToken);
                 setUserInfo(JSON.parse(userInfo));
-                // await initializeNotifications(); // Mở comment nếu cần
+                await initializeNotifications(); // Mở comment nếu cần
             }
         } catch (e) {
             console.log(`isLoggedIn error: ${e}`);

@@ -1,13 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, FlatList, KeyboardAvoidingView, Platform, TextInput as NativeInput, Alert, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { View, StyleSheet, FlatList, KeyboardAvoidingView, Platform, TextInput as NativeInput, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Text, Avatar, IconButton, Surface, ActivityIndicator, Button } from 'react-native-paper';
+import { Text, Avatar, IconButton, Surface, ActivityIndicator } from 'react-native-paper';
 import client from '../../api/client';
 import GroupSettings from '../../components/GroupSettings';
-import io from 'socket.io-client';
 import * as SecureStore from 'expo-secure-store';
 import dayjs from 'dayjs';
-import { SOCKET_URL } from '../../../constants';
+import { useOfflineSocket } from '../../hooks/useOfflineSocket';
+import { useNetwork } from '../../contexts/NetworkContext';
+import { getPendingMessages } from '../../services/offline';
 
 const GroupScreen = () => {
     const [messages, setMessages] = useState([]);
@@ -18,32 +19,82 @@ const GroupScreen = () => {
     const [groupInfo, setGroupInfo] = useState(null);
 
     const flatListRef = useRef(null);
-    const socketRef = useRef(null);
+    const { isConnected } = useNetwork();
+
+    // Callback khi nhận tin nhắn mới
+    const handleNewMessage = useCallback((msg) => {
+        setMessages(prev => {
+            // Lấy senderId từ message
+            const msgSenderId = typeof msg.senderId === 'object' 
+                ? msg.senderId._id 
+                : msg.senderId;
+            
+            // Kiểm tra nếu tin nhắn từ chính mình và đã có trong list (pending)
+            const currentUserId = currentUser?.id || currentUser?._id;
+            const isFromMe = msgSenderId === currentUserId;
+            
+            // Tìm tin nhắn pending tương ứng (cùng content, cùng sender, trong khoảng 30s)
+            const pendingIndex = prev.findIndex(m => {
+                if (!m.pending) return false;
+                if (!isFromMe) return false;
+                
+                // Match by tempId if exists
+                if (msg.tempId && m.tempId === msg.tempId) return true;
+                
+                // Match by content + sender + time proximity
+                const timeDiff = Math.abs(new Date(m.createdAt) - new Date(msg.createdAt));
+                return m.content === msg.content && timeDiff < 30000; // 30 seconds
+            });
+            
+            if (pendingIndex !== -1) {
+                // Cập nhật tin nhắn pending thành confirmed
+                const newMessages = [...prev];
+                newMessages[pendingIndex] = { 
+                    ...msg, 
+                    pending: false,
+                    _id: msg._id // Dùng ID thật từ server
+                };
+                return newMessages;
+            }
+            
+            // Kiểm tra duplicate bằng _id
+            const existsById = prev.some(m => m._id === msg._id);
+            if (existsById) {
+                return prev; // Đã tồn tại, không thêm
+            }
+            
+            // Tin nhắn mới từ người khác
+            return [...prev, { ...msg, pending: false }];
+        });
+        
+        setTimeout(() => flatListRef.current?.scrollToEnd(), 100);
+    }, [currentUser]);
+
+    // Sử dụng hook offline socket
+    const { isSocketConnected, sendMessage } = useOfflineSocket(
+        groupInfo?._id,
+        currentUser?.id,
+        handleNewMessage
+    );
 
     useEffect(() => {
         const initScreen = async () => {
             await checkGroupStatus();
         };
         initScreen();
-
-        return () => {
-            if (socketRef.current) socketRef.current.disconnect();
-        };
     }, []);
 
     const checkGroupStatus = async () => {
         try {
             setLoading(true);
 
-            // 1. Lấy thông tin User từ SecureStore (Đã được lưu lúc Login)
+            // 1. Lấy thông tin User từ SecureStore
             const userInfoJson = await SecureStore.getItemAsync('userInfo');
             let userObj = null;
             if (userInfoJson) {
                 userObj = JSON.parse(userInfoJson);
                 if (userObj.id) userObj._id = userObj.id;
                 setCurrentUser(userObj);
-            } else {
-                console.log('⚠️ Không tìm thấy userInfo trong SecureStore');
             }
 
             // 2. Get Group Info
@@ -53,18 +104,10 @@ const GroupScreen = () => {
                 setHasGroup(true);
                 setGroupInfo(group);
 
-                // 3. Connect Socket nếu đã có user
-                if (userObj && userObj.id) {
-                    initSocket(group._id, userObj.id);
-                } else {
-                    console.log('⚠️ Chưa có User ID để connect socket');
-                }
-
-                // 4. Fetch History
-                fetchMessages();
+                // 3. Fetch History
+                await fetchMessages(group._id);
             }
         } catch (e) {
-            // Code 00096: Không có nhóm
             if (e.response?.data?.code === '00096') {
                 setHasGroup(false);
             } else {
@@ -75,35 +118,44 @@ const GroupScreen = () => {
         }
     };
 
-    const initSocket = (groupId, userId) => {
-        if (socketRef.current) return;
-
-        socketRef.current = io(SOCKET_URL, {
-            transports: ['websocket'],
-            jsonp: false
-        });
-
-        socketRef.current.on('connect', () => {
-            console.log('✅ Socket connected');
-            socketRef.current.emit('join_group', groupId);
-        });
-
-        socketRef.current.on('new_message', (msg) => {
-            console.log('📩 New message received:', msg);
-            setMessages(prev => [...prev, msg]);
-            // Scroll to bottom
-            setTimeout(() => flatListRef.current?.scrollToEnd(), 100);
-        });
-    };
-
-    const fetchMessages = async () => {
+    const fetchMessages = async (groupId) => {
         try {
             const res = await client.get('/user/group/messages');
-            if (res.data.data) {
-                setMessages(res.data.data);
-            }
+            let serverMessages = res.data.data || [];
+            
+            // Merge với pending messages local
+            const pendingMessages = await getPendingMessages(groupId);
+            const pendingFormatted = pendingMessages.map(msg => ({
+                _id: msg.temp_id,
+                tempId: msg.temp_id,
+                senderId: msg.sender_id,
+                content: msg.content,
+                createdAt: new Date(msg.created_at).toISOString(),
+                pending: true,
+            }));
+            
+            // Gộp và sắp xếp theo thời gian
+            const allMessages = [...serverMessages, ...pendingFormatted].sort(
+                (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
+            );
+            
+            setMessages(allMessages);
         } catch (e) {
             console.log('Error fetching messages:', e);
+            
+            // Offline: Chỉ hiển thị pending messages
+            if (groupId) {
+                const pendingMessages = await getPendingMessages(groupId);
+                const pendingFormatted = pendingMessages.map(msg => ({
+                    _id: msg.temp_id,
+                    tempId: msg.temp_id,
+                    senderId: msg.sender_id,
+                    content: msg.content,
+                    createdAt: new Date(msg.created_at).toISOString(),
+                    pending: true,
+                }));
+                setMessages(pendingFormatted);
+            }
         }
     };
 
@@ -111,63 +163,59 @@ const GroupScreen = () => {
         try {
             await client.post('/user/group/');
             setHasGroup(true);
-            checkGroupStatus(); // Reload info
+            checkGroupStatus();
         } catch (e) {
             console.log(e);
         }
     };
 
-    const sendMessage = () => {
+    const handleSendMessage = async () => {
         if (!inputText.trim()) return;
-        if (!groupInfo) return;
-
-        if (!currentUser || !currentUser.id) {
-            Alert.alert("Lỗi", "Không tìm thấy User ID. Hãy đăng xuất và đăng nhập lại.");
-            // Thử lấy lại từ store lần nữa cho chắc
-            SecureStore.getItemAsync('userInfo').then(u => {
-                if (u) {
-                    const parsed = JSON.parse(u);
-                    setCurrentUser({ ...parsed, _id: parsed.id });
-                    Alert.alert("Thông báo", "Đã tìm thấy lại User ID. Hãy thử gửi lại.");
-                }
-            });
-            return;
+        
+        const localMessage = await sendMessage(inputText.trim());
+        
+        if (localMessage) {
+            // Thêm tin nhắn local vào list ngay lập tức
+            setMessages(prev => [...prev, localMessage]);
+            setInputText('');
+            setTimeout(() => flatListRef.current?.scrollToEnd(), 100);
         }
-
-        const msgData = {
-            groupId: groupInfo._id,
-            senderId: currentUser.id, // Dùng currentUser.id (từ login response)
-            content: inputText.trim()
-        };
-
-        socketRef.current.emit('send_message', msgData);
-        setInputText('');
     };
 
     const renderMessage = ({ item }) => {
-        // item.senderId có thể là object (populated) hoặc string.
         const senderId = typeof item.senderId === 'object' ? item.senderId._id : item.senderId;
         const senderName = typeof item.senderId === 'object' ? item.senderId.name : 'Unknown';
-        // const senderAvatar = typeof item.senderId === 'object' ? item.senderId.avatar : '';
-
-        // currentUser có thể có id hoặc _id do ta normalize
         const currentUserId = currentUser?.id || currentUser?._id;
         const isMe = currentUserId && senderId === currentUserId;
         const time = dayjs(item.createdAt).format('HH:mm');
+        const isPending = item.pending;
 
         return (
             <View style={[styles.msgRow, isMe ? styles.msgRowRight : styles.msgRowLeft]}>
                 {!isMe && (
-                    <Avatar.Text size={30} label={senderName ? senderName[0] : '?'} style={{ marginRight: 8, backgroundColor: '#E5E7EB' }} />
+                    <Avatar.Text 
+                        size={30} 
+                        label={senderName ? senderName[0] : '?'} 
+                        style={{ marginRight: 8, backgroundColor: '#E5E7EB' }} 
+                    />
                 )}
-                <View style={[styles.msgBubble, isMe ? styles.msgBubbleRight : styles.msgBubbleLeft]}>
+                <View style={[
+                    styles.msgBubble, 
+                    isMe ? styles.msgBubbleRight : styles.msgBubbleLeft,
+                    isPending && styles.msgBubblePending
+                ]}>
                     {!isMe && <Text style={styles.senderName}>{senderName}</Text>}
                     <Text style={[styles.msgText, isMe ? { color: 'white' } : { color: '#1F2937' }]}>
                         {item.content}
                     </Text>
-                    <Text style={[styles.timeText, isMe ? { color: '#E9D5FF' } : { color: 'gray' }]}>
-                        {time}
-                    </Text>
+                    <View style={styles.msgFooter}>
+                        <Text style={[styles.timeText, isMe ? { color: '#E9D5FF' } : { color: 'gray' }]}>
+                            {time}
+                        </Text>
+                        {isPending && (
+                            <Text style={styles.pendingText}>⏳</Text>
+                        )}
+                    </View>
                 </View>
             </View>
         );
@@ -205,10 +253,14 @@ const GroupScreen = () => {
             <View style={styles.header}>
                 <View>
                     <Text style={styles.headerTitle}>{groupInfo ? groupInfo.name : 'Nhóm'}</Text>
-                    <Text style={styles.headerStatus}>{groupInfo?.members?.length || 0} thành viên • Online</Text>
+                    <Text style={[
+                        styles.headerStatus,
+                        { color: isSocketConnected ? '#10B981' : '#F59E0B' }
+                    ]}>
+                        {groupInfo?.members?.length || 0} thành viên • {isSocketConnected ? 'Online' : 'Offline'}
+                    </Text>
                 </View>
 
-                {/* BUTTON QUẢN LÝ NHÓM */}
                 <View style={styles.headerBtn}>
                     <GroupSettings />
                 </View>
@@ -219,27 +271,25 @@ const GroupScreen = () => {
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                 keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
             >
-                {/* --- CHAT AREA --- */}
                 <FlatList
                     ref={flatListRef}
                     style={{ flex: 1 }}
                     data={messages}
                     renderItem={renderMessage}
-                    keyExtractor={item => item._id || Math.random().toString()}
+                    keyExtractor={item => item._id || item.tempId || Math.random().toString()}
                     contentContainerStyle={styles.chatContainer}
                     keyboardShouldPersistTaps="handled"
                     onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
                     onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
                 />
 
-                {/* --- INPUT AREA --- */}
                 <Surface style={styles.inputBar} elevation={4}>
                     <IconButton icon="image-outline" iconColor="#7C3AED" />
                     <View style={styles.inputWrapper}>
                         <NativeInput
                             value={inputText}
                             onChangeText={setInputText}
-                            placeholder="Nhập tin nhắn..."
+                            placeholder={isConnected ? "Nhập tin nhắn..." : "Nhập tin nhắn (offline)..."}
                             placeholderTextColor="#9CA3AF"
                             style={styles.textInput}
                             multiline
@@ -251,7 +301,7 @@ const GroupScreen = () => {
                         containerColor={inputText ? '#7C3AED' : '#E5E7EB'}
                         iconColor="white"
                         disabled={!inputText}
-                        onPress={sendMessage}
+                        onPress={handleSendMessage}
                     />
                 </Surface>
             </KeyboardAvoidingView>
@@ -265,7 +315,7 @@ const styles = StyleSheet.create({
     // Header
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12, backgroundColor: 'white', borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
     headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#111827' },
-    headerStatus: { fontSize: 12, color: '#10B981' },
+    headerStatus: { fontSize: 12 },
     headerBtn: { backgroundColor: '#7C3AED', borderRadius: 20, width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
 
     // Chat List
@@ -277,10 +327,13 @@ const styles = StyleSheet.create({
     msgBubble: { padding: 12, borderRadius: 16, minWidth: 100 },
     msgBubbleLeft: { backgroundColor: 'white', borderBottomLeftRadius: 4 },
     msgBubbleRight: { backgroundColor: '#7C3AED', borderBottomRightRadius: 4 },
+    msgBubblePending: { opacity: 0.7 },
 
     senderName: { fontSize: 10, color: 'gray', marginBottom: 2 },
     msgText: { fontSize: 15 },
-    timeText: { fontSize: 10, alignSelf: 'flex-end', marginTop: 4 },
+    msgFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 4 },
+    timeText: { fontSize: 10 },
+    pendingText: { fontSize: 10, marginLeft: 4 },
 
     // Input Bar
     inputBar: { flexDirection: 'row', alignItems: 'center', padding: 8, backgroundColor: 'white' },
