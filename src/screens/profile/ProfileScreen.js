@@ -1,11 +1,13 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Image, TouchableOpacity, Alert, SafeAreaView } from 'react-native';
 import { Text, List, Divider, Avatar, Switch } from 'react-native-paper';
 import { AuthContext } from '../../contexts/AuthContext';
 import { EditProfileModal, ChangePasswordModal } from '../../components/ProfileModals';
 
-// Định nghĩa Base URL để load ảnh (Giống trong api/client.js)
-const BASE_URL = 'http://192.168.1.18:3000/it4788'; 
+import CategoryManagement from '../../components/CategoryManagement';
+import UnitManagement from '../../components/UnitManagement';
+import client from '../../api/client';
+import { API_BASE_URL } from '../../../constants';
 
 const ProfileScreen = ({ navigation }) => {
     const { logout, userInfo, updateUser } = useContext(AuthContext);
@@ -13,8 +15,63 @@ const ProfileScreen = ({ navigation }) => {
     // Modal States
     const [editVisible, setEditVisible] = useState(false);
     const [passwordVisible, setPasswordVisible] = useState(false);
-    
+    const [categoryVisible, setCategoryVisible] = useState(false);
+    const [unitVisible, setUnitVisible] = useState(false);
     const [notifications, setNotifications] = useState(true);
+    const [groupInfo, setGroupInfo] = useState(null);
+
+    // THÊM MỚI: Kiểm tra xem user có phải là admin của group không
+    const isGroupAdmin = () => {
+        if (!groupInfo || !userInfo) return false;
+        const adminId = groupInfo.adminId?._id || groupInfo.adminId;
+        const userId = userInfo.id || userInfo._id;
+        return adminId === userId;
+    };
+
+    // THÊM MỚI: Fetch group info khi component mount
+    useEffect(() => {
+        fetchGroupInfo();
+    }, []);
+
+    const fetchGroupInfo = async () => {
+        try {
+            const response = await client.get('/user/group/info');
+            if (response.data && response.data.data) {
+                setGroupInfo(response.data.data);
+            }
+        } catch (error) {
+            // User chưa có nhóm - không cần báo lỗi
+            if (error.response?.data?.code !== '00096') {
+                console.log('Fetch group info error:', error);
+            }
+        }
+    };
+
+    // THÊM MỚI: Xử lý mở Category Management
+    const handleOpenCategoryManagement = () => {
+        if (!groupInfo) {
+            Alert.alert('Thông báo', 'Bạn chưa tham gia nhóm nào.');
+            return;
+        }
+        if (!isGroupAdmin()) {
+            Alert.alert('Thông báo', 'Bạn không phải quản trị viên');
+            return;
+        }
+        setCategoryVisible(true);
+    };
+
+    // THÊM MỚI: Xử lý mở Unit Management
+    const handleOpenUnitManagement = () => {
+        if (!groupInfo) {
+            Alert.alert('Thông báo', 'Bạn chưa tham gia nhóm nào.');
+            return;
+        }
+        if (!isGroupAdmin()) {
+            Alert.alert('Thông báo', 'Bạn không phải quản trị viên');
+            return;
+        }
+        setUnitVisible(true);
+    };
 
     const handleLogout = () => {
         Alert.alert('Đăng xuất', 'Bạn có chắc chắn muốn đăng xuất?', [
@@ -36,7 +93,7 @@ const ProfileScreen = ({ navigation }) => {
         // BASE_URL trong file client.js thường đã có /it4788
         // Nếu server trả về full path /it4788/uploads... thì cẩn thận trùng lặp
         // Ở đây giả định server trả về đường dẫn tĩnh
-        return { uri: `${BASE_URL}/${cleanPath}` };
+        return { uri: `${API_BASE_URL}/${cleanPath}` };
     };
 
     return (
@@ -84,21 +141,34 @@ const ProfileScreen = ({ navigation }) => {
                     />
                 </View>
 
-                {/* Admin Section */}
+                {/* THÊM MỚI: Admin Section với badge */}
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Quản trị hệ thống (Admin)</Text>
+                    <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Quản trị hệ thống (Admin)</Text>
+                        {groupInfo && (
+                            <View style={[styles.adminBadge, isGroupAdmin() ? styles.adminBadgeActive : styles.adminBadgeInactive]}>
+                                <Text style={styles.adminBadgeText}>
+                                    {isGroupAdmin() ? '👑 Quản trị viên' : '👤 Thành viên'}
+                                </Text>
+                            </View>
+                        )}
+                    </View>
                     <List.Item
                         title="Quản lý Danh mục (Categories)"
                         description="Thêm/Sửa/Xóa loại thực phẩm"
-                        left={props => <List.Icon {...props} icon="shape-outline" />}
-                        onPress={() => Alert.alert('Thông báo', 'Tính năng đang phát triển')}
+                        left={props => <List.Icon {...props} icon="shape-outline" color="#7C3AED" />}
+                        right={props => <List.Icon {...props} icon="chevron-right" />}
+                        onPress={handleOpenCategoryManagement}
+                        style={styles.listItem}
                     />
-                     <Divider />
+                    <Divider />
                     <List.Item
                         title="Quản lý Đơn vị (Units)"
                         description="kg, g, lít, hộp..."
-                        left={props => <List.Icon {...props} icon="scale" />}
-                        onPress={() => Alert.alert('Thông báo', 'Tính năng đang phát triển')}
+                        left={props => <List.Icon {...props} icon="scale" color="#10B981" />}
+                        right={props => <List.Icon {...props} icon="chevron-right" />}
+                        onPress={handleOpenUnitManagement}
+                        style={styles.listItem}
                     />
                 </View>
 
@@ -131,6 +201,19 @@ const ProfileScreen = ({ navigation }) => {
                 visible={passwordVisible} 
                 onClose={() => setPasswordVisible(false)} 
             />
+
+            {/* THÊM MỚI: Admin Management Modals */}
+            <CategoryManagement
+                visible={categoryVisible}
+                onClose={() => setCategoryVisible(false)}
+                isAdmin={isGroupAdmin()}
+            />
+
+            <UnitManagement
+                visible={unitVisible}
+                onClose={() => setUnitVisible(false)}
+                isAdmin={isGroupAdmin()}
+            />
         </SafeAreaView>
     );
 };
@@ -146,7 +229,12 @@ const styles = StyleSheet.create({
     email: { fontSize: 14, color: '#6B7280', marginTop: 4 },
     
     section: { backgroundColor: 'white', marginBottom: 12, paddingVertical: 8 },
+    sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingRight: 16 },
     sectionTitle: { fontSize: 13, fontWeight: '700', color: '#9CA3AF', paddingHorizontal: 16, paddingVertical: 8, textTransform: 'uppercase' },
+    adminBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+    adminBadgeActive: { backgroundColor: '#FEF3C7' },
+    adminBadgeInactive: { backgroundColor: '#F3F4F6' },
+    adminBadgeText: { fontSize: 11, fontWeight: '600', color: '#1F2937' },
     listItem: { paddingVertical: 4 },
     
     logoutBtn: { margin: 16, padding: 16, backgroundColor: '#FEE2E2', borderRadius: 12, alignItems: 'center' },
