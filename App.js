@@ -3,6 +3,7 @@ import React, { useEffect } from 'react';
 import { Provider as PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context'; // <--- IMPORT MỚI
 import { AuthProvider } from './src/contexts/AuthContext';
+import { MessageProvider } from './src/contexts/MessageContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import { registerNotificationListeners } from './src/notifications';
 
@@ -16,10 +17,12 @@ export default function App() {
   }, []);
 
   return (
-    <SafeAreaProvider> 
+    <SafeAreaProvider>
       <PaperProvider>
         <AuthProvider>
-          <AppNavigator />
+          <MessageProvider>
+            <AppNavigator />
+          </MessageProvider>
         </AuthProvider>
       </PaperProvider>
     </SafeAreaProvider>

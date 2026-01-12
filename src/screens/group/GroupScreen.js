@@ -1,13 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, StyleSheet, FlatList, KeyboardAvoidingView, Platform, TextInput as NativeInput, Alert, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, Avatar, IconButton, Surface, ActivityIndicator, Button } from 'react-native-paper';
+import { useFocusEffect } from '@react-navigation/native';
 import client from '../../api/client';
 import GroupSettings from '../../components/GroupSettings';
 import io from 'socket.io-client';
 import * as SecureStore from 'expo-secure-store';
 import dayjs from 'dayjs';
 import { SOCKET_URL } from '../../../constants';
+import { useMessage } from '../../contexts/MessageContext';
+
 
 const GroupScreen = () => {
     const [messages, setMessages] = useState([]);
@@ -16,13 +19,34 @@ const GroupScreen = () => {
     const [loading, setLoading] = useState(true);
     const [currentUser, setCurrentUser] = useState(null);
     const [groupInfo, setGroupInfo] = useState(null);
+    // State lưu các tin nhắn đã được thả tim (local only)
+    const [likedMessages, setLikedMessages] = useState({});
 
     const flatListRef = useRef(null);
     const socketRef = useRef(null);
 
+    // Lấy các hàm từ MessageContext
+    const { setGroupScreenActive, initGlobalSocket, markAsRead } = useMessage();
+
+    // Đánh dấu đã đọc khi user focus vào màn hình này
+    useFocusEffect(
+        useCallback(() => {
+            // Khi vào màn hình Group
+            setGroupScreenActive(true);
+            markAsRead();
+
+            return () => {
+                // Khi rời màn hình Group
+                setGroupScreenActive(false);
+            };
+        }, [])
+    );
+
     useEffect(() => {
         const initScreen = async () => {
             await checkGroupStatus();
+            // Khởi tạo global socket để lắng nghe tin nhắn mới (cho notification badge)
+            await initGlobalSocket();
         };
         initScreen();
 
@@ -30,6 +54,7 @@ const GroupScreen = () => {
             if (socketRef.current) socketRef.current.disconnect();
         };
     }, []);
+
 
     const checkGroupStatus = async () => {
         try {
@@ -144,31 +169,54 @@ const GroupScreen = () => {
         setInputText('');
     };
 
+    // Toggle thả tim cho tin nhắn
+    const toggleLike = (messageId) => {
+        setLikedMessages(prev => ({
+            ...prev,
+            [messageId]: !prev[messageId]
+        }));
+    };
+
     const renderMessage = ({ item }) => {
         // item.senderId có thể là object (populated) hoặc string.
         const senderId = typeof item.senderId === 'object' ? item.senderId._id : item.senderId;
         const senderName = typeof item.senderId === 'object' ? item.senderId.name : 'Unknown';
-        // const senderAvatar = typeof item.senderId === 'object' ? item.senderId.avatar : '';
 
         // currentUser có thể có id hoặc _id do ta normalize
         const currentUserId = currentUser?.id || currentUser?._id;
         const isMe = currentUserId && senderId === currentUserId;
         const time = dayjs(item.createdAt).format('HH:mm');
+        const messageId = item._id || item.id;
+        const isLiked = likedMessages[messageId];
 
         return (
             <View style={[styles.msgRow, isMe ? styles.msgRowRight : styles.msgRowLeft]}>
                 {!isMe && (
                     <Avatar.Text size={30} label={senderName ? senderName[0] : '?'} style={{ marginRight: 8, backgroundColor: '#E5E7EB' }} />
                 )}
-                <View style={[styles.msgBubble, isMe ? styles.msgBubbleRight : styles.msgBubbleLeft]}>
-                    {!isMe && <Text style={styles.senderName}>{senderName}</Text>}
-                    <Text style={[styles.msgText, isMe ? { color: 'white' } : { color: '#1F2937' }]}>
-                        {item.content}
-                    </Text>
-                    <Text style={[styles.timeText, isMe ? { color: '#E9D5FF' } : { color: 'gray' }]}>
-                        {time}
-                    </Text>
-                </View>
+                <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => toggleLike(messageId)}
+                >
+                    <View style={[styles.msgBubble, isMe ? styles.msgBubbleRight : styles.msgBubbleLeft]}>
+                        {!isMe && <Text style={styles.senderName}>{senderName}</Text>}
+                        <Text style={[styles.msgText, isMe ? { color: 'white' } : { color: '#1F2937' }]}>
+                            {item.content}
+                        </Text>
+                        <View style={styles.msgFooter}>
+                            <Text style={[styles.timeText, isMe ? { color: '#E9D5FF' } : { color: 'gray' }]}>
+                                {time}
+                            </Text>
+                            {isLiked && <Text style={styles.heartIcon}>❤️</Text>}
+                        </View>
+                    </View>
+                    {/* Heart badge bên ngoài bubble */}
+                    {isLiked && (
+                        <View style={[styles.heartBadge, isMe ? styles.heartBadgeRight : styles.heartBadgeLeft]}>
+                            <Text style={{ fontSize: 14 }}>❤️</Text>
+                        </View>
+                    )}
+                </TouchableOpacity>
             </View>
         );
     };
@@ -280,7 +328,34 @@ const styles = StyleSheet.create({
 
     senderName: { fontSize: 10, color: 'gray', marginBottom: 2 },
     msgText: { fontSize: 15 },
-    timeText: { fontSize: 10, alignSelf: 'flex-end', marginTop: 4 },
+    timeText: { fontSize: 10, marginTop: 4 },
+
+    // Heart reaction styles
+    msgFooter: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginTop: 4
+    },
+    heartIcon: {
+        fontSize: 12,
+        marginLeft: 8
+    },
+    heartBadge: {
+        position: 'absolute',
+        bottom: -6,
+        backgroundColor: 'white',
+        borderRadius: 10,
+        paddingHorizontal: 4,
+        paddingVertical: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.2,
+        shadowRadius: 2,
+        elevation: 3,
+    },
+    heartBadgeLeft: { right: 8 },
+    heartBadgeRight: { left: 8 },
 
     // Input Bar
     inputBar: { flexDirection: 'row', alignItems: 'center', padding: 8, backgroundColor: 'white' },
